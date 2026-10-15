@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from './ui/button';
 import { useEffect, useState } from 'react';
-import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
+
 
 // Rolling target: end of the current month (23:59:59 on the last day).
 // Keeps the "Deal Of The Month" countdown live and prevents a stale
@@ -33,8 +33,8 @@ const DealCountdown = () => {
 
   const photos = [
     { id: 1, label: 'Deal Spotlight', src: '/images/walk3.png' },
-    { id: 3, label: 'Rocken My Vibe', src: '/images/walk1.png' },
-    { id: 2, label: 'Behind the Scenes', src: '/images/walk2.png' },
+    { id: 2, label: 'Christian Clothing Life', src: '/images/walk1.png' },
+    { id: 3, label: 'New This Month', src: '/images/walk2.png' },
   ];
 
   useEffect(() => {
@@ -126,82 +126,33 @@ const DealCountdown = () => {
         </div>
       </div>
 
-      {/* Mobile: swipeable carousel */}
-      <div className='relative h-[320px] mt-4 md:mt-8 md:hidden'>
-        <div className='absolute inset-0 bg-gradient-radial from-violet-500/35 via-transparent to-transparent blur-3xl opacity-80' />
-
-        <div className='relative h-full flex items-start justify-center'>
-          <div className='relative w-full max-w-md aspect-[4/5]'>
-            <Carousel
-              className='h-full'
-              opts={{
-                loop: true,
-              }}
-            >
-              <CarouselContent className='h-full'>
-                {photos.map((photo) => (
-                  <CarouselItem key={photo.id} className='h-full'>
-                    <div className='relative h-full rounded-2xl border border-white/15 overflow-hidden bg-slate-900/80 shadow-[0_18px_45px_rgba(15,23,42,0.85)]'>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <Image
-                        src={photo.src}
-                        alt={photo.label}
-                        fill
-                        sizes='(min-width: 768px) 565px, 100vw'
-                        className='object-cover'
-                      />
-                      <div className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-4 text-[11px] text-gray-100 flex items-center justify-between'>
-                        <span className='uppercase tracking-[0.15em] text-gray-300'>{photo.label}</span>
-                        <span className='text-[10px] text-violet-300'>Limited Time</span>
-                      </div>
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
-          </div>
+      {/* Deal images */}
+      <div className='relative mt-4 md:mt-8'>
+        <div className='pointer-events-none absolute inset-0 -z-10 flex items-center justify-center'>
+          <div className='h-64 w-64 rounded-full bg-violet-300/40 blur-3xl' />
         </div>
-      </div>
 
-      {/* Desktop / tablet: floating stacked photos */}
-      <div className='relative h-[320px] md:h-[380px] lg:h-[420px] mt-4 md:mt-8 hidden md:block'>
-        <div className='absolute inset-0 bg-gradient-radial from-violet-500/35 via-transparent to-transparent blur-3xl opacity-80' />
-
-        <div className='relative h-full flex items-start justify-center'>
-          <div className='relative w-full max-w-md aspect-[4/5]'>
-            {/* Floating photos (same concept as About page) */}
-            <div className='group/pile absolute inset-0'>
-              {photos.map((photo, index) => (
-                <div
-                  key={photo.id}
-                  className={`absolute rounded-2xl border border-white/15 overflow-hidden bg-slate-900/80 shadow-[0_18px_45px_rgba(15,23,42,0.85)] transition-all duration-300 ease-out cursor-pointer
-                    hover:z-30 hover:scale-105 hover:-translate-y-2
-                    group-hover/pile:opacity 25
-                  `}
-                  style={{
-                    top: `${10 + index * 6}%`,
-                    left: `${index % 2 === 0 ? 4 + index * 10 : 22 + index * 8}%`,
-                    width: index === 1 || index === 2 ? '56%' : '48%',
-                    height: index === 1 ? '52%' : index === 2 ? '50%' : '44%',
-                    transform: `rotate(${index % 2 === 0 ? -6 + index * 2 : 8 - index * 2}deg)`,
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <Image
-                    src={photo.src}
-                    alt={photo.label}
-                    fill
-                    sizes='(min-width: 1024px) 565px, (min-width: 768px) 480px, 80vw'
-                    className='object-cover'
-                  />
-                  <div className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-4 text-[11px] text-gray-100 flex items-center justify-between'>
-                    <span className='uppercase tracking-[0.15em] text-gray-300'>{photo.label}</span>
-                    <span className='text-[10px] text-violet-300'>Limited Time</span>
-                  </div>
-                </div>
-              ))}
+        <div className='mx-auto grid max-w-md grid-cols-2 gap-4'>
+          {photos.map((photo, index) => (
+            <div
+              key={photo.id}
+              className={`group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 transition duration-300 hover:-translate-y-1 ${
+                index === 0 ? 'col-span-2 aspect-[16/10]' : 'aspect-square'
+              }`}
+            >
+              <Image
+                src={photo.src}
+                alt={photo.label}
+                fill
+                sizes='(min-width: 768px) 448px, 100vw'
+                className='object-cover transition duration-500 group-hover:scale-105'
+              />
+              <div className='absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/20 to-transparent px-3 pb-2 pt-6 text-[11px] text-white'>
+                <span className='font-medium uppercase tracking-[0.15em]'>{photo.label}</span>
+                <span className='text-[10px] text-violet-200'>Limited Time</span>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

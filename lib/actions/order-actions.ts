@@ -11,6 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { PAGE_SIZE } from '../constants';
 import { Prisma } from '@prisma/client';
 import { sendPurchaseReceipt } from '@/email';
+import { notifyOwnerOfOrder } from '@/lib/notifications/order-notify';
 
 // ---------- Type Guard Helpers ---------- //
 function isShippingAddress(data: unknown): data is ShippingAddress {
@@ -299,6 +300,15 @@ export async function updateOrderToPaid({
       },
     }).catch((error) => {
       console.error('Failed to send purchase receipt:', error);
+    });
+
+    // Alert the store owner (email + optional push webhook).
+    notifyOwnerOfOrder({
+      ...normalizedOrder,
+      shippingAddress: normalizedOrder.shippingAddress,
+      paymentResult: normalizedOrder.paymentResult,
+    }).catch((error) => {
+      console.error('Failed to notify owner of order:', error);
     });
   } else {
     console.error('Invalid address or payment result:', updatedOrder);

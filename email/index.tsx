@@ -5,6 +5,7 @@ import { SENDER_EMAIL, APP_NAME } from '@/lib/constants';
 import { Order } from '@/types';
 
 import PurchaseReceiptEmail from './purchase-receipt';
+import NewOrderAlertEmail from './new-order-alert';
 import VerifyEmail from './verify-email';
 import ResetPassword from './reset-password';
 
@@ -56,6 +57,36 @@ export const sendPurchaseReceipt = async ({ order }: { order: Order }) => {
     console.log('✓ Purchase Receipt Email Sent:', info.messageId);
   } catch (err) {
     console.error('❌ Error sending Purchase Receipt email:', err);
+  }
+};
+
+export const sendNewOrderAlert = async ({
+  order,
+  to,
+}: {
+  order: Order;
+  to: string | string[];
+}) => {
+  const recipients = Array.isArray(to) ? to.filter(Boolean) : [to].filter(Boolean);
+  if (!recipients.length) return;
+
+  try {
+    const html = await render(<NewOrderAlertEmail order={order} />);
+    const body = await encryptIfNeeded(html);
+
+    const info = await transporter.sendMail({
+      from: `${APP_NAME} <${SENDER_EMAIL}>`,
+      to: recipients,
+      subject: `🛒 New order ${order.id} — ${new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(Number(order.totalPrice))}`,
+      html: body,
+    });
+
+    console.log('✓ New Order Alert Email Sent:', info.messageId);
+  } catch (err) {
+    console.error('❌ Error sending new order alert email:', err);
   }
 };
 
