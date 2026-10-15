@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/db/prisma';
 
 export const authConfig = {
+  // Trust the host header. Required by Auth.js v5 outside Vercel (local prod,
+  // custom domains). Without it, requests fail with UntrustedHost.
+  trustHost: true,
   providers: [], // Required by NextAuthConfig type
   callbacks: {
     async authorized({ request, auth }) {

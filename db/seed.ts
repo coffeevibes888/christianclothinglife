@@ -3,11 +3,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 import sampleData from './sample-data';
 import { hash } from '@/lib/encrypt';
+import { DIRECT_DATABASE_URL } from './connection';
 
 async function main() {
-  // Prefer the direct connection for seeding (bulk writes don't play well with
-  // the PgBouncer pooler). Falls back to DATABASE_URL if DIRECT_URL isn't set.
-  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  // Seeding uses the direct connection (bulk writes don't play well with the
+  // PgBouncer pooler). Resolution/SSL handling lives in ./connection.
+  const connectionString = DIRECT_DATABASE_URL;
   const adapter = new PrismaPg({ connectionString });
   const prisma = new PrismaClient({ adapter });
   const p: any = prisma;

@@ -1,11 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { decryptField, encryptField } from '@/lib/encrypt';
+import { POOLED_DATABASE_URL } from './connection';
 
-// Runtime connection. Point DATABASE_URL at the Supabase *pooled* connection
-// (port 6543, host *.pooler.supabase.com, with ?pgbouncer=true) for serverless
-// friendliness. Migrations/seeding use the direct connection (see prisma.config.ts).
-const connectionString = process.env.DATABASE_URL as string;
+// Runtime connection uses the Supabase *pooled* URL (port 6543, pgbouncer=true).
+// Resolution + SSL normalization lives in ./connection so it works on both
+// local (.env) and Vercel (POSTGRES_PRISMA_URL) without changes.
+const connectionString = POOLED_DATABASE_URL as string;
 const adapter = new PrismaPg({ connectionString });
 
 const prismaBase = new PrismaClient({ adapter });
