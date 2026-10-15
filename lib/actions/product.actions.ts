@@ -1,0 +1,416 @@
+"use server";
+import { prisma } from '@/db/prisma';
+import { convertToPlainObject, formatError } from '../utils';
+import { LATEST_PRODUCTS_LIMIT, PAGE_SIZE } from '../constants';
+import { revalidatePath } from 'next/cache';
+import { insertProductSchema, updateProductSchema } from '../validators';
+import { z } from 'zod';
+import { Prisma } from '@prisma/client';
+// Printful sync disabled: imports removed
+
+// Type for variant creation
+type VariantInput = {
+  productId: string;
+  colorId?: string;
+  sizeId?: string;
+  price: number;
+  stock: number;
+  images: string[];
+};
+
+// Get latest products
+export async function getLatestProducts(limit = LATEST_PRODUCTS_LIMIT) {
+  const data = await prisma.product.findMany({
+    take: limit,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return convertToPlainObject(
+    data.map((p) => ({
+      ...p,
+      subCategory: p.subCategory ?? undefined,
+      price: Number(p.price),
+      rating: Number(p.rating),
+    }))
+  );
+}
+
+// Get latest products for a specific category (for themed sections like Faith, Funny, Deals, etc.)
+export async function getLatestProductsByCategory(category: string, limit = LATEST_PRODUCTS_LIMIT) {
+  const data = await prisma.product.findMany({
+    where: {
+      OR: [
+        { category: { equals: category, mode: 'insensitive' } },
+        { subCategory: { equals: category, mode: 'insensitive' } },
+      ],
+    },
+    take: limit,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return convertToPlainObject(
+    data.map((p) => ({
+      ...p,
+      subCategory: p.subCategory ?? undefined,
+      price: Number(p.price),
+      rating: Number(p.rating),
+    }))
+  );
+}
+
+// Sync products from Printful Store API into local Product/ProductVariant tables
+export async function syncProductsFromPrintful() {
+  return { success: false, message: 'Printful sync is disabled' };
+}
+
+// Get single product by it's slug
+export async function getProductBySlug(slug: string) {
+  const product = await prisma.product.findFirst({
+    where: { slug: slug },
+    include: { variants: { include: { color: true, size: true } } },
+  });
+  return convertToPlainObject(product);
+}
+
+// Get all colors
+export async function getAllColors() {
+  return await prisma.color.findMany({ where: { active: true }, orderBy: { name: 'asc' } });
+}
+
+// Get all sizes
+export async function getAllSizes() {
+  return await prisma.size.findMany({ where: { active: true }, orderBy: { name: 'asc' } });
+}
+
+// Get variants for a product by product id
+export async function getVariantsByProductId(productId: string) {
+  return await prisma.productVariant.findMany({ where: { productId }, include: { color: true, size: true } });
+}
+
+// Get single product by it's ID
+export async function getProductById(productId: string) {
+  const data = await prisma.product.findFirst({
+    where: { id: productId },
+  });
+
+  if (!data) return null;
+
+  const normalized = {
+    ...data,
+    subCategory: data.subCategory ?? undefined,
+    price: Number(data.price),
+    rating: Number(data.rating),
+  };
+
+  return convertToPlainObject(normalized);
+}
+
+// Get all products
+export async function getAllProducts({
+  query,
+  limit = PAGE_SIZE,
+  page,
+  category,
+  price,
+  rating,
+  sort,
+  sizeSlug,
+  colorSlug,
+  inStockOnly,
+}: {
+  query: string;
+  limit?: number;
+  page: number;
+  category?: string;
+  price?: string;
+  rating?: string;
+  sort?: string;
+  sizeSlug?: string;
+  colorSlug?: string;
+  inStockOnly?: boolean;
+}) {
+  // Query filter
+  const queryFilter: Prisma.ProductWhereInput =
+    query && query !== 'all'
+      ? {
+          name: {
+            contains: query,
+            mode: 'insensitive',
+          } as Prisma.StringFilter,
+        }
+      : {};
+
+  // Category filter
+  const categoryFilter = category && category !== 'all' ? { category } : {};
+
+  // Price filter
+  const priceFilter: Prisma.ProductWhereInput =
+    price && price !== 'all'
+      ? {
+          price: {
+            gte: Number(price.split('-')[0]),
+            lte: Number(price.split('-')[1]),
+          },
+        }
+      : {};
+
+  // Rating filter
+  const ratingFilter =
+    rating && rating !== 'all'
+      ? {
+          rating: {
+            gte: Number(rating),
+          },
+        }
+      : {};
+
+  const sizeFilter: Prisma.ProductWhereInput =
+    sizeSlug && sizeSlug !== 'all'
+      ? {
+          variants: {
+            some: {
+              size: { slug: sizeSlug },
+            },
+          },
+        }
+      : {};
+
+  const colorFilter: Prisma.ProductWhereInput =
+    colorSlug && colorSlug !== 'all'
+      ? {
+          variants: {
+            some: {
+              color: { slug: colorSlug },
+            },
+          },
+        }
+      : {};
+
+  const stockFilter: Prisma.ProductWhereInput = inStockOnly
+    ? {
+        OR: [
+          { stock: { gt: 0 } },
+          {
+            variants: {
+              some: {
+                stock: { gt: 0 },
+              },
+            },
+          },
+        ],
+      }
+    : {};
+
+  const where: Prisma.ProductWhereInput = {
+    ...queryFilter,
+    ...categoryFilter,
+    ...priceFilter,
+    ...ratingFilter,
+    ...sizeFilter,
+    ...colorFilter,
+    ...stockFilter,
+  };
+
+  const data = await prisma.product.findMany({
+    where,
+    orderBy:
+      sort === 'lowest'
+        ? { price: 'asc' }
+        : sort === 'highest'
+        ? { price: 'desc' }
+        : sort === 'rating'
+        ? { rating: 'desc' }
+        : { createdAt: 'desc' },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  const dataCount = await prisma.product.count({ where });
+
+  return {
+    data: data.map((p) => ({
+      ...p,
+      price: Number(p.price),
+      rating: Number(p.rating),
+    })),
+    totalPages: Math.ceil(dataCount / limit),
+  };
+}
+
+// Delete a product
+export async function deleteProduct(id: string) {
+  try {
+    const productExists = await prisma.product.findFirst({
+      where: { id },
+    });
+
+    if (!productExists) throw new Error('Product not found');
+
+    await prisma.product.delete({ where: { id } });
+
+    revalidatePath('/admin/products');
+
+    return {
+      success: true,
+      message: 'Product deleted successfully',
+    };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+// Create a product
+export async function createProduct(data: z.infer<typeof insertProductSchema>) {
+  try {
+    const product = insertProductSchema.parse(data);
+    // Extract only Product model fields, excluding sizeIds and colorIds (variant metadata)
+    const { sizeIds, colorIds, saleUntil, ...rest } = product;
+
+    const productData = {
+      ...rest,
+      // Convert saleUntil from string (from datetime-local input) to Date or null for Prisma
+      saleUntil: saleUntil ? new Date(saleUntil) : null,
+    };
+    console.log('Color IDs:', colorIds);
+
+    // create product and optionally create variants from provided sizeIds
+    const created = await prisma.product.create({ data: productData });
+
+    if (sizeIds && sizeIds.length) {
+      const variants: VariantInput[] = [];
+      for (const sizeId of sizeIds) {
+        variants.push({
+          productId: created.id,
+          sizeId,
+          price: Number(product.price),
+          stock: product.stock,
+          images: product.images || [],
+        });
+      }
+      if (variants.length) {
+        await prisma.productVariant.createMany({ data: variants });
+      }
+    }
+
+    revalidatePath('/admin/products');
+
+    return {
+      success: true,
+      message: 'Product created successfully',
+    };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+// Update a product
+export async function updateProduct(data: z.infer<typeof updateProductSchema>) {
+  try {
+    const product = updateProductSchema.parse(data);
+    const productExists = await prisma.product.findFirst({
+      where: { id: product.id },
+    });
+
+    if (!productExists) throw new Error('Product not found');
+
+    // Update product and optionally refresh variants
+    await prisma.$transaction(async (tx) => {
+      // Extract only Product model fields, excluding sizeIds and colorIds (variant metadata)
+      const { sizeIds, colorIds, saleUntil, ...rest } = product;
+      void colorIds;
+
+      const productData = {
+        ...rest,
+        saleUntil: saleUntil ? new Date(saleUntil) : null,
+      };
+
+      await tx.product.update({ where: { id: product.id }, data: productData });
+
+      // If sizeIds provided, remove existing variants and recreate (colorId no longer selected in UI)
+      if (sizeIds && sizeIds.length) {
+        await tx.productVariant.deleteMany({ where: { productId: product.id } });
+        const variants: VariantInput[] = [];
+        for (const sizeId of sizeIds) {
+          if (!sizeId) continue; // skip any empty size ids to avoid invalid UUIDs
+
+          variants.push({
+            productId: product.id,
+            sizeId,
+            price: Number(product.price),
+            stock: product.stock,
+            images: product.images || [],
+          });
+        }
+        if (variants.length) {
+          await tx.productVariant.createMany({ data: variants });
+        }
+      }
+    });
+
+    revalidatePath('/admin/products');
+
+    return {
+      success: true,
+      message: 'Product updated successfully',
+    };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+// Get all categories
+export async function getAllCategories() {
+  const data = await prisma.product.groupBy({
+    by: ['category'],
+    _count: true,
+  });
+
+  return data;
+}
+
+// Get category tree with distinct subcategories (for navigation menus)
+export async function getCategoryTree() {
+  const rows = await prisma.product.groupBy({
+    by: ['category', 'subCategory'],
+    _count: { _all: true },
+  });
+
+  const map = new Map<string, { count: number; subCategories: string[] }>();
+
+  for (const row of rows) {
+    const entry = map.get(row.category) ?? { count: 0, subCategories: [] };
+    entry.count += row._count._all ?? 0;
+
+    if (row.subCategory) {
+      if (!entry.subCategories.includes(row.subCategory)) {
+        entry.subCategories.push(row.subCategory);
+      }
+    }
+
+    map.set(row.category, entry);
+  }
+
+  return Array.from(map.entries()).map(([category, value]) => ({
+    category,
+    count: value.count,
+    subCategories: value.subCategories,
+  }));
+}
+
+// Get featured products
+export async function getFeaturedProducts() {
+  const data = await prisma.product.findMany({
+    where: { isFeatured: true },
+    orderBy: { createdAt: 'desc' },
+    take: 4,
+  });
+
+  return convertToPlainObject(
+    data.map((p) => ({
+      ...p,
+      subCategory: p.subCategory ?? undefined,
+      price: Number(p.price),
+      rating: Number(p.rating),
+    }))
+  );
+}

@@ -1,0 +1,297 @@
+import { z } from 'zod';
+import { formatNumberWithDecimal } from './utils';
+import { PAYMENT_METHODS } from './constants';
+
+const currency = z
+  .coerce.number()
+  .refine(
+    (value) => /^\d+(\.\d{2})?$/.test(formatNumberWithDecimal(value)),
+    'Price must have exactly two decimal places'
+  );
+
+// Base schema for products (shared by insert and update)
+const baseProductSchema = z.object({
+  name: z.string().min(3, 'Name must be at least 3 characters'),
+  slug: z.string().min(3, 'Slug must be at least 3 characters'),
+  category: z.string().min(3, 'Category must be at least 3 characters'),
+  subCategory: z
+    .string()
+    .min(3, 'Sub category must be at least 3 characters')
+    .optional(),
+  brand: z.string().min(3, 'Brand must be at least 3 characters'),
+  description: z.string().min(3, 'Description must be at least 3 characters'),
+  stock: z.coerce.number(),
+  images: z.array(z.string()).min(1, 'Product must have at least one image'),
+  imageColors: z.array(z.string()).optional(),
+  isFeatured: z.boolean(),
+  banner: z.string().nullable(),
+  price: currency,
+  colorIds: z.array(z.string()).optional(),
+  sizeIds: z.array(z.string()).optional(),
+  onSale: z.boolean().optional().default(false),
+  salePercent: z.coerce.number().min(1).optional(),
+  saleUntil: z.string().nullable().optional(),
+  saleDiscountType: z.enum(['percentage', 'amount']).optional().default('percentage'),
+});
+
+// Schema for inserting products
+export const insertProductSchema = baseProductSchema.superRefine((data, ctx) => {
+  if (data.onSale) {
+    if (data.salePercent === undefined || Number.isNaN(data.salePercent)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['salePercent'],
+        message: 'Sale value is required when On Sale is enabled',
+      });
+      return;
+    }
+
+    const type = data.saleDiscountType ?? 'percentage';
+    const value = Number(data.salePercent);
+
+    if (type === 'percentage') {
+      if (value < 1 || value > 90) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['salePercent'],
+          message: 'Sale percent must be between 1 and 90',
+        });
+      }
+    } else if (type === 'amount') {
+      const priceNumber = Number(data.price);
+      if (value <= 0 || value >= priceNumber) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['salePercent'],
+          message: 'Sale amount must be greater than 0 and less than the product price',
+        });
+      }
+    }
+  }
+});
+
+// Schema for updating products
+export const updateProductSchema = baseProductSchema
+  .extend({
+    id: z.string().min(1, 'Id is required'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.onSale) {
+      if (data.salePercent === undefined || Number.isNaN(data.salePercent)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['salePercent'],
+          message: 'Sale value is required when On Sale is enabled',
+        });
+        return;
+      }
+
+      const type = data.saleDiscountType ?? 'percentage';
+      const value = Number(data.salePercent);
+
+      if (type === 'percentage') {
+        if (value < 1 || value > 90) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['salePercent'],
+            message: 'Sale percent must be between 1 and 90',
+          });
+        }
+      } else if (type === 'amount') {
+        const priceNumber = Number(data.price);
+        if (value <= 0 || value >= priceNumber) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['salePercent'],
+            message: 'Sale amount must be greater than 0 and less than the product price',
+          });
+        }
+      }
+    }
+  });
+
+// Schema for signing users in
+export const signInFormSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+// Schema for signing up a user
+export const signUpFormSchema = z
+  .object({
+    name: z.string().min(3, 'Name must be at least 3 characters'),
+    email: z.string().email('Invalid email address'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z
+      .string()
+      .min(6, 'Confirm password must be at least 6 characters'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
+
+// Cart Schemas
+export const cartItemSchema = z.object({
+  productId: z.string().min(1, 'Product is required'),
+  name: z.string().min(1, 'Name is required'),
+  slug: z.string().min(1, 'Slug is required'),
+  qty: z.number().int().nonnegative('Quantity must be a positive number'),
+  image: z.string().min(1, 'Image is required'),
+  price: currency,
+  variantId: z.string().optional(),
+  variantColor: z.string().optional(),
+  variantSize: z.string().optional(),
+});
+
+export const insertCartSchema = z.object({
+  items: z.array(cartItemSchema),
+  itemsPrice: currency,
+  totalPrice: currency,
+  shippingPrice: currency,
+  taxPrice: currency,
+  sessionCartId: z.string().min(1, 'Session cart id is required'),
+  userId: z.string().optional().nullable(),
+});
+
+// Schema for the shipping address
+export const shippingAddressSchema = z.object({
+  fullName: z.string().min(3, 'Name must be at least 3 characters'),
+  streetAddress: z.string().min(3, 'Address must be at least 3 characters'),
+  city: z.string().min(3, 'City must be at least 3 characters'),
+  postalCode: z.string().min(3, 'Postal code must be at least 3 characters'),
+  country: z.string().min(3, 'Country must be at least 3 characters'),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+});
+
+// Schema for payment method
+export const paymentMethodSchema = z
+  .object({
+    type: z.string().min(1, 'Payment method is required'),
+    promoCode: z.string().optional(),
+  })
+  .refine((data) => PAYMENT_METHODS.includes(data.type), {
+    path: ['type'],
+    message: 'Invalid payment method',
+  });
+
+// Schema for inserting order
+export const insertOrderSchema = z.object({
+  userId: z.string().min(1, 'User is required'),
+  itemsPrice: currency,
+  shippingPrice: currency,
+  taxPrice: currency,
+  totalPrice: currency,
+  paymentMethod: z.string().refine((data) => PAYMENT_METHODS.includes(data), {
+    message: 'Invalid payment method',
+  }),
+  shippingAddress: shippingAddressSchema,
+});
+
+// Schema for inserting an order item
+export const insertOrderItemSchema = z.object({
+  productId: z.string(),
+  slug: z.string(),
+  image: z.string(),
+  name: z.string(),
+  price: currency,
+  qty: z.number(),
+  variantId: z.string().nullable().optional(),
+  variantColor: z.string().nullable().optional(),
+  variantSize: z.string().nullable().optional()
+});
+
+// Schema for the PayPal paymentResult
+export const paymentResultSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+  email_address: z.string(),
+  pricePaid: z.string(),
+});
+
+const phoneRegex = /^(\+1|1)?[-.\s]?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/;
+
+// Schema for updating the user profile
+export const updateProfileSchema = z.object({
+  name: z.string().min(3, 'Name must be at leaast 3 characters'),
+  email: z.string().min(3, 'Email must be at leaast 3 characters'),
+});
+
+// Schema for updating user address
+export const updateAddressSchema = z.object({
+  fullName: z.string().min(3, 'Full name must be at least 3 characters'),
+  streetAddress: z.string().min(5, 'Street address must be at least 5 characters'),
+  city: z.string().min(2, 'City must be at least 2 characters'),
+  postalCode: z.string().min(3, 'Postal code must be at least 3 characters'),
+  country: z.string().min(2, 'Country must be at least 2 characters'),
+});
+
+// Schema for billing address
+export const billingAddressSchema = z.object({
+  fullName: z.string().min(3, 'Full name must be at least 3 characters'),
+  streetAddress: z.string().min(5, 'Street address must be at least 5 characters'),
+  city: z.string().min(2, 'City must be at least 2 characters'),
+  postalCode: z.string().min(3, 'Postal code must be at least 3 characters'),
+  country: z.string().min(2, 'Country must be at least 2 characters'),
+});
+
+// Schema for saved payment method (Stripe tokenized)
+export const savedPaymentMethodSchema = z.object({
+  stripePaymentMethodId: z.string().min(1, 'Stripe payment method ID is required'),
+  type: z.string().min(1, 'Payment method type is required'),
+  cardholderName: z.string().min(1, 'Cardholder name is required'),
+  last4: z.string().length(4, 'Last 4 digits must be exactly 4 characters'),
+  expirationDate: z.string().regex(/^\d{2}\/\d{2}$/, 'Expiration date must be MM/YY format'),
+  brand: z.string().min(1, 'Card brand is required'),
+  billingAddress: billingAddressSchema,
+  isDefault: z.boolean().optional().default(false),
+});
+
+// Schema for phone number verification
+export const sendPhoneOtpSchema = z.object({
+  phoneNumber: z
+    .string()
+    .regex(phoneRegex, 'Invalid phone number format (e.g., +1 (555) 123-4567)'),
+});
+
+// Schema for verifying phone OTP
+export const verifyPhoneOtpSchema = z.object({
+  otp: z.string().min(6, 'OTP must be 6 digits').max(6, 'OTP must be 6 digits'),
+});
+
+// Schema to update users
+export const updateUserSchema = updateProfileSchema.extend({
+  id: z.string().min(1, 'ID is required'),
+  role: z.string().min(1, 'Role is required'),
+});
+
+// Schema to insert reviews
+export const insertReviewSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  description: z.string().min(3, 'Description must be at least 3 characters'),
+  productId: z.string().min(1, 'Product is required'),
+  userId: z.string().min(1, 'User is required'),
+  rating: z.coerce
+    .number()
+    .int()
+    .min(1, 'Rating must be at least 1')
+    .max(5, 'Rating must be at most 5'),
+});
+
+// Blog post schemas
+export const insertBlogPostSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  slug: z.string().min(3, 'Slug must be at least 3 characters'),
+  excerpt: z.string().min(3, 'Excerpt must be at least 3 characters').optional().nullable(),
+  contentHtml: z.string().min(3, 'Content must be at least 3 characters'),
+  coverImage: z.string().url('Cover image must be a valid URL').optional().nullable(),
+  mediaUrls: z.array(z.string().url()).default([]),
+  tags: z.array(z.string()).default([]),
+  isPublished: z.boolean().default(true),
+  authorId: z.string().optional().nullable(),
+});
+
+export const updateBlogPostSchema = insertBlogPostSchema.extend({
+  id: z.string().min(1, 'Id is required'),
+});
