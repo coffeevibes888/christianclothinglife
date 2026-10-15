@@ -6,7 +6,7 @@ const f = createUploadthing();
 
 export const ourFileRouter = {
   imageUploader: f({
-    image: { maxFileSize: '4MB' },
+    image: { maxFileSize: '4MB', maxFileCount: 30 },
   })
     .middleware(async () => {
       const session = await auth();

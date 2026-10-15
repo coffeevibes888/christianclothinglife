@@ -1,104 +1,123 @@
-import Image from "next/image";
-import Link from "next/link";
-import Menu from "./menu";
-import CategoryDrawer from './category-drawer';
+import Image from 'next/image';
+import Link from 'next/link';
+import { ShoppingCart, ChevronDown } from 'lucide-react';
 import { getCategoryTree } from '@/lib/actions/product.actions';
+import { getMyCart } from '@/lib/actions/cart.actions';
+import { auth } from '@/auth';
+import { Badge } from '@/components/ui/badge';
+import UserButton from './user-button';
+import NotificationBell from './notification-bell';
+import MobileNav from './mobile-nav';
+import HeaderShell from './header-shell';
 
 const Header = async () => {
-  const categories = await getCategoryTree();
+  const [categories, cart, session] = await Promise.all([
+    getCategoryTree().catch(() => []),
+    getMyCart().catch(() => null),
+    auth().catch(() => null),
+  ]);
 
-  return ( 
-    <header className="w-full">
-      {/* Mobile header: hamburger left, logo centered, menu (three dots) right */}
-      <div className="wrapper flex items-center justify-between md:hidden">
-        <div className="flex items-center">
-          <CategoryDrawer />
-        </div>
+  const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.qty, 0) || 0;
+  const isAdmin = session?.user?.role === 'admin';
+  const isSuperAdmin = session?.user?.role === 'superAdmin';
 
-        <Link href='/' className="flex items-center justify-center">
-          <div className="relative w-28 h-16">
+  return (
+    <HeaderShell>
+      <div className='mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:h-20 md:px-8'>
+        {/* Logo */}
+        <Link href='/' className='flex shrink-0 items-center'>
+          <div className='relative h-12 w-28 md:h-16 md:w-40'>
             <Image
-              src='/images/2.svg'
+              src='/images/christianlogo.png'
               fill
-              className="object-contain"
-              alt="Rocken My Vibe Logo"
-              priority={true}
+              className='object-contain'
+              alt='Christian Clothing Life'
+              priority
             />
           </div>
         </Link>
 
-        <div className="flex items-center">
-          <Menu />
-        </div>
-      </div>
+        {/* Desktop nav */}
+        <nav className='hidden items-center gap-1 md:flex'>
+          <NavLink href='/'>Home</NavLink>
 
-      {/* Desktop / tablet header */}
-      <div className="wrapper hidden md:flex items-center justify-between">
-        <div className="flex items-center">
-          <Link href='/' className="flex items-center">
-            <CategoryDrawer />
-            <div className="relative w-36 h-36">
-              <Image src='/images/2.svg'
-                fill
-                className="object-contain"
-                alt="Rocken My Vibe Logo"
-                priority={true}
-              />
-            </div>
-          </Link>
-        </div>
-
-        <div className="flex items-center justify-center text-white">
-          <Link href='/' className="m-2.5 hover:text-black hover:underline">Home</Link>
-          <Link href='/about' className="m-2.5 hover:text-black hover:underline">About</Link>
-          {/* <Link href='/blog' className="m-2.5 hover:text-black hover:underline">Blog</Link> */}
-          <Link href='/contact' className="m-2.5 hover:text-black hover:underline">Contact</Link>
-
-        
-          <div className="relative m-2.5 group">
-            {/* <button className="hover:text-black hover:underline">Products</button> */}
+          {/* Shop mega menu */}
+          <div className='group relative'>
+            <button className='flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900'>
+              Shop
+              <ChevronDown size={15} className='transition-transform group-hover:rotate-180' />
+            </button>
             {categories.length > 0 && (
-              <div className="absolute left-0 top-full mt-1 hidden group-hover:flex bg-white text-black rounded-md shadow-lg z-50 min-w-[520px]">
-                <div className="w-52 border-r border-gray-200 py-3">
+              <div className='invisible absolute left-0 top-full z-50 min-w-[240px] pt-2 opacity-0 transition-all duration-150 group-hover:visible group-hover:opacity-100'>
+                <div className='overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl shadow-slate-900/5'>
                   {categories.map((cat) => (
                     <Link
                       key={cat.category}
                       href={`/search?category=${encodeURIComponent(cat.category)}`}
-                      className="flex items-center justify-between px-4 py-1.5 text-sm hover:bg-gray-100"
+                      className='flex items-center justify-between px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-blue-600'
                     >
                       <span>{cat.category}</span>
-                      <span className="text-xs text-gray-400">{cat.count}</span>
+                      <span className='text-xs text-slate-400'>{cat.count}</span>
                     </Link>
-                  ))}
-                </div>
-                <div className="flex-1 grid grid-cols-2 gap-4 p-4 max-h-72 overflow-y-auto">
-                  {categories.map((cat) => (
-                    cat.subCategories.length > 0 && (
-                      <div key={cat.category} className="space-y-1">
-                        <p className="text-xs font-semibold uppercase text-gray-500">{cat.category}</p>
-                        <div className="flex flex-col space-y-0.5">
-                          {cat.subCategories.map((sub) => (
-                            <Link
-                              key={`${cat.category}-${sub}`}
-                              href={`/search?category=${encodeURIComponent(cat.category)}&subCategory=${encodeURIComponent(sub)}`}
-                              className="text-sm text-gray-700 hover:text-black hover:underline">
-                              {sub}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )
                   ))}
                 </div>
               </div>
             )}
           </div>
+
+          <NavLink href='/about'>About</NavLink>
+          <NavLink href='/contact'>Contact</NavLink>
+          {isSuperAdmin && <NavLink href='/super-admin'>Monitoring</NavLink>}
+        </nav>
+
+        {/* Desktop actions */}
+        <div className='hidden items-center gap-2 md:flex'>
+          <NotificationBell isAdmin={isAdmin} />
+          <CartButton count={cartItemCount} />
+          <UserButton />
         </div>
 
-        <Menu />
+        {/* Mobile actions */}
+        <div className='flex items-center gap-1.5 md:hidden'>
+          <CartButton count={cartItemCount} compact />
+          <UserButton />
+          <MobileNav categories={categories} isSuperAdmin={isSuperAdmin} />
+        </div>
       </div>
-    </header> 
+    </HeaderShell>
   );
-}
- 
+};
+
+const NavLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
+  <Link
+    href={href}
+    className='rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900'
+  >
+    {children}
+  </Link>
+);
+
+const CartButton = ({ count, compact }: { count: number; compact?: boolean }) => (
+  <Link
+    href='/cart'
+    aria-label='Cart'
+    className={`relative inline-flex items-center gap-1.5 rounded-lg font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 ${
+      compact ? 'h-10 w-10 justify-center' : 'px-3 py-2 text-sm'
+    }`}
+  >
+    <span className='relative'>
+      <ShoppingCart size={20} />
+      {count > 0 && (
+        <Badge
+          variant='destructive'
+          className='absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px]'
+        >
+          {count}
+        </Badge>
+      )}
+    </span>
+    {!compact && <span>Cart</span>}
+  </Link>
+);
+
 export default Header;

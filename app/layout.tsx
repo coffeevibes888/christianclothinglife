@@ -24,20 +24,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en' suppressHydrationWarning>
-      <body className='bg-gradient-to-br from-slate-950 via-violet-800/60 to-slate-900 text-foreground flex flex-col min-h-screen overflow-x-hidden'>
+      <body className='bg-white text-slate-900 flex flex-col min-h-screen overflow-x-hidden antialiased'>
         <ThemeProvider
           attribute='class'
-          defaultTheme='dark'
+          defaultTheme='light'
           enableSystem={false}
-          forcedTheme='dark'
+          forcedTheme='light'
           disableTransitionOnChange
         >
           <Suspense fallback={null}>
             <EnhancedTracker />
           </Suspense>
           <div
-            className='w-full text-[11px] md:text-xs font-medium tracking-tight flex items-center overflow-hidden bg-gradient-to-r from-purple-700 via-purple-600 to-yellow-400 shadow-sm'
-            style={{ height: '24px' }}
+            className='w-full text-[11px] md:text-xs font-medium tracking-tight flex items-center overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 shadow-sm'
+            style={{ height: '28px' }}
           >
             <div className='banner-marquee flex items-center gap-6 px-4 text-white whitespace-nowrap'>
               <span>Free shipping over $75 within the US.</span>

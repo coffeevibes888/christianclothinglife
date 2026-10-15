@@ -8,7 +8,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className='flex h-screen flex-col'>
+    <div className='flex min-h-screen flex-col bg-gradient-to-b from-sky-100 via-sky-50 to-sky-50'>
       <Header />
       <main className='flex-1 wrapper'>{children}</main>
       <Footer />

@@ -6,8 +6,13 @@ import { Button } from './ui/button';
 import { useEffect, useState } from 'react';
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 
-// Static target date (Dec 25, 2025 at 12:00 AM)
-const TARGET_DATE = new Date('2025-12-25T00:00:00');
+// Rolling target: end of the current month (23:59:59 on the last day).
+// Keeps the "Deal Of The Month" countdown live and prevents a stale
+// "Deal Has Ended" state from ever showing on the storefront.
+const getTargetDate = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+};
 
 // Function to calculate the time remaining
 const calculateTimeRemaining = (targetDate: Date) => {
@@ -34,10 +39,10 @@ const DealCountdown = () => {
 
   useEffect(() => {
     // Calculate initial time on client
-    setTime(calculateTimeRemaining(TARGET_DATE));
+    setTime(calculateTimeRemaining(getTargetDate()));
 
     const timerInterval = setInterval(() => {
-      const newTime = calculateTimeRemaining(TARGET_DATE);
+      const newTime = calculateTimeRemaining(getTargetDate());
       setTime(newTime);
 
       if (
@@ -98,17 +103,17 @@ const DealCountdown = () => {
   return (
     <section className='grid grid-cols-1 md:grid-cols-2 my-20 gap-10 items-start'>
       <div className='flex flex-col gap-4 justify-center'>
-        <h3 className='text-3xl md:text-4xl font-bold text-white'>Deal Of The Month</h3>
-        <p className='text-sm md:text-base text-gray-200'>
+        <h3 className='text-3xl md:text-4xl font-bold text-slate-900'>Deal Of The Month</h3>
+        <p className='text-sm md:text-base text-slate-600'>
           Get ready for a shopping experience like never before with our Deals of the Month! Every purchase comes with
           exclusive perks and offers, making this month a celebration of savvy choices and amazing deals. Don&apos;t miss
           out! 🎁🛒
         </p>
-        <p className='text-base md:text-lg font-semibold text-amber-300'>
-          Deal of the Month: <span className='line-through text-gray-400'>$24.99</span>{' '}
-          <span className='text-emerald-400 font-bold'>Now Only $19.99</span>
+        <p className='text-base md:text-lg font-semibold text-amber-600'>
+          Deal of the Month: <span className='line-through text-slate-400'>$24.99</span>{' '}
+          <span className='text-emerald-600 font-bold'>Now Only $19.99</span>
         </p>
-        <ul className='grid grid-cols-4 rounded-2xl border border-white/10 bg-slate-950/70 overflow-hidden'>
+        <ul className='grid grid-cols-4 divide-x divide-slate-200 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 overflow-hidden'>
           <StatBox label='Days' value={time.days} />
           <StatBox label='Hours' value={time.hours} />
           <StatBox label='Minutes' value={time.minutes} />
@@ -204,9 +209,13 @@ const DealCountdown = () => {
 };
 
 const StatBox = ({ label, value }: { label: string; value: number }) => (
-  <li className='p-4 w-full text-center'>
-    <p className='text-3xl font-bold'>{value}</p>
-    <p>{label}</p>
+  <li className='w-full p-4 text-center'>
+    <p className='bg-gradient-to-br from-blue-600 to-violet-600 bg-clip-text text-3xl font-bold tabular-nums text-transparent'>
+      {String(value).padStart(2, '0')}
+    </p>
+    <p className='mt-1 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500'>
+      {label}
+    </p>
   </li>
 );
 

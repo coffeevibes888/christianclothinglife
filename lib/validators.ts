@@ -14,10 +14,10 @@ const baseProductSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
   slug: z.string().min(3, 'Slug must be at least 3 characters'),
   category: z.string().min(3, 'Category must be at least 3 characters'),
-  subCategory: z
-    .string()
-    .min(3, 'Sub category must be at least 3 characters')
-    .optional(),
+  subCategory: z.preprocess(
+    (v) => (v === '' || v == null ? undefined : v),
+    z.string().optional()
+  ),
   brand: z.string().min(3, 'Brand must be at least 3 characters'),
   description: z.string().min(3, 'Description must be at least 3 characters'),
   stock: z.coerce.number(),

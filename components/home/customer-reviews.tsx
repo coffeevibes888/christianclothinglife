@@ -5,6 +5,7 @@ import { formatDateTime } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
 import Rating from '@/components/shared/product/rating';
+import SectionHeading from './section-heading';
 
 const CustomerReviews = async () => {
   const reviews = await getLatestProductReviews(3);
@@ -42,14 +43,20 @@ const CustomerReviews = async () => {
     : reviews;
 
   return (
-    <section className="my-16">
-      <div className="container mx-auto max-w-5xl px-4 md:px-6 space-y-6">
-        <header className="space-y-1">
-          <p className="text-xs tracking-[0.28em] uppercase text-violet-300">Customer Reviews</p>
-          <h2 className="text-2xl md:text-3xl font-semibold text-white">What people are saying</h2>
-        </header>
+    <section className="relative my-16 py-6">
+      {/* Ambient background glow */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute left-1/2 top-0 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-indigo-300/15 blur-3xl" />
+      </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+      <div className="container mx-auto max-w-5xl px-4 md:px-6 space-y-8">
+        <SectionHeading
+          eyebrow="Customer Reviews"
+          title="What people are saying"
+          subtitle="Real words from people wearing the message every day."
+        />
+
+        <div className="grid gap-5 md:grid-cols-3">
           {fallback.map((review) => {
             const created = formatDateTime(review.createdAt);
             const userName = review.user?.name || 'Happy Customer';
@@ -63,10 +70,10 @@ const CustomerReviews = async () => {
             return (
               <article
                 key={review.id}
-                className="relative rounded-2xl border border-white/10 bg-slate-950/50 shadow-xl shadow-black/40 p-4 flex flex-col gap-3"
+                className="relative rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 p-5 flex flex-col gap-3 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10"
               >
                 <div className="flex items-center gap-3">
-                  <div className="relative h-10 w-10 rounded-full overflow-hidden bg-violet-600/80 flex items-center justify-center text-xs font-semibold text-white">
+                  <div className="relative h-10 w-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-xs font-semibold text-white">
                     {review.user?.image ? (
                       <Image
                         src={review.user.image}
@@ -79,29 +86,29 @@ const CustomerReviews = async () => {
                     )}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-white">{userName}</span>
-                    <span className="text-[11px] text-gray-300">
+                    <span className="text-sm font-medium text-slate-900">{userName}</span>
+                    <span className="text-[11px] text-slate-400">
                       {created.dateOnly} · {created.timeOnly}
                     </span>
                   </div>
                 </div>
 
-                <div className="space-y-1 text-sm text-gray-100">
-                  <div className="flex items-center gap-2 text-xs text-violet-200">
+                <div className="space-y-1 text-sm text-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
                     <Rating value={review.rating} />
-                    <span className="uppercase tracking-[0.18em] text-[10px] text-gray-300">
+                    <span className="uppercase tracking-[0.18em] text-[10px] text-slate-400">
                       {review.product?.name || 'Product'}
                     </span>
                   </div>
-                  <p className="font-semibold text-sm text-white line-clamp-2">{review.title}</p>
-                  <p className="text-xs text-gray-200 line-clamp-3">{review.description}</p>
+                  <p className="font-semibold text-sm text-slate-900 line-clamp-2">{review.title}</p>
+                  <p className="text-xs text-slate-600 line-clamp-3">{review.description}</p>
                 </div>
 
                 <div className="mt-auto pt-2 text-right">
                   {review.product?.slug && (
                     <Link
                       href={`/product/${review.product.slug}`}
-                      className="text-[11px] text-violet-300 hover:text-violet-200 underline"
+                      className="text-[11px] text-blue-600 hover:text-blue-700 underline"
                     >
                       View product
                     </Link>

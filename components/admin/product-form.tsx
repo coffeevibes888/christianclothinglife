@@ -13,7 +13,7 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { createProduct, updateProduct } from '@/lib/actions/product.actions';
-import { UploadButton } from '@/lib/uploadthing';
+import { UploadButton, UploadDropzone } from '@/lib/uploadthing';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Checkbox } from '../ui/checkbox';
@@ -155,21 +155,7 @@ const ProductForm = ({
               <FormItem className="w-full">
                 <FormLabel>Category</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter category" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="subCategory"
-            render={({ field }: { field: ControllerRenderProps<z.infer<typeof insertProductSchema>, 'subCategory'> }) => (
-              <FormItem className="w-full">
-                <FormLabel>Sub Category</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter sub category (e.g. T-shirt, Hoodie, Hat)" {...field} />
+                  <Input placeholder="T-Shirts, Hoodies, Coffee Mugs, Seasonal, or Christian Humor" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -292,13 +278,35 @@ const ProductForm = ({
                     ))}
                   </div>
                   <FormControl>
-                    <UploadButton
+                    <UploadDropzone
                       endpoint="imageUploader"
+                      config={{ mode: 'auto' }}
+                      appearance={{
+                        container:
+                          'rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6',
+                        label: 'text-slate-700 hover:text-blue-600',
+                        allowedContent: 'text-slate-500',
+                        uploadIcon: 'text-slate-400',
+                        button:
+                          'bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold px-5 py-2 rounded-md after:bg-blue-700',
+                      }}
+                      content={{
+                        label: 'Drag & drop images here, or click to select multiple images at once',
+                        allowedContent: 'Up to 30 images, 4MB each — add them all in one go',
+                      }}
                       onClientUploadComplete={(res: { url: string }[]) => {
-                        const url = res[0]?.url;
-                        if (!url) return;
-                        form.setValue('images', [...images, url]);
-                        form.setValue('imageColors', [...imageColors, '']);
+                        const urls = (res || [])
+                          .map((r) => r.url)
+                          .filter((u): u is string => Boolean(u));
+                        if (!urls.length) return;
+                        form.setValue('images', [...images, ...urls]);
+                        form.setValue('imageColors', [
+                          ...imageColors,
+                          ...urls.map(() => ''),
+                        ]);
+                        toast({
+                          description: `Added ${urls.length} image${urls.length > 1 ? 's' : ''}.`,
+                        });
                       }}
                       onUploadError={(error: Error) => {
                         toast({
@@ -427,6 +435,11 @@ const ProductForm = ({
               {isFeatured && !banner && (
                 <UploadButton
                   endpoint="imageUploader"
+                  appearance={{
+                    button:
+                      'bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold px-5 py-2',
+                    allowedContent: 'text-slate-500',
+                  }}
                   onClientUploadComplete={(res: { url: string }[]) => {
                     form.setValue('banner', res[0].url);
                   }}

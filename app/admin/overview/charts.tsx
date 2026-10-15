@@ -18,22 +18,22 @@ const Charts = ({
           </defs>
           <CartesianGrid
             strokeDasharray='3 3'
-            stroke='#ffffff1a'
+            stroke='#e2e8f0'
             vertical={false}
           />
           <XAxis
             dataKey='month'
-            stroke='#9ca3af'
+            stroke='#64748b'
             fontSize={12}
             tickLine={false}
-            axisLine={{ stroke: '#ffffff1a' }}
+            axisLine={{ stroke: '#e2e8f0' }}
             style={{ fontSize: '0.875rem' }}
           />
           <YAxis
-            stroke='#9ca3af'
+            stroke='#64748b'
             fontSize={12}
             tickLine={false}
-            axisLine={{ stroke: '#ffffff1a' }}
+            axisLine={{ stroke: '#e2e8f0' }}
             tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
             style={{ fontSize: '0.875rem' }}
           />

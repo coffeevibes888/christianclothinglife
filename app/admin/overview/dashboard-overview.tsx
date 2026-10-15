@@ -72,7 +72,7 @@ const DashboardOverview = ({ summary }: DashboardOverviewProps) => {
           <motion.div
             key={card.id}
             layout
-            className='backdrop-blur-md bg-white/10 border border-white/20 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow cursor-pointer group relative'
+            className='bg-white border border-slate-200 rounded-xl overflow-hidden shadow-lg shadow-slate-900/5 hover:shadow-xl transition-shadow cursor-pointer group relative'
             onClick={(e) => {
               if (card.link && !card.details) {
                 return;
@@ -100,12 +100,12 @@ const DashboardOverview = ({ summary }: DashboardOverviewProps) => {
             <motion.div layout className='relative p-6 z-10'>
               <div className='flex items-start justify-between mb-4'>
                 <div className='flex-1'>
-                  <p className='text-sm font-medium text-gray-300 mb-1'>
+                  <p className='text-sm font-medium text-slate-500 mb-1'>
                     {card.title}
                   </p>
                   <motion.h3
                     layout
-                    className='text-3xl font-bold text-white'
+                    className='text-3xl font-bold text-slate-900'
                   >
                     {card.value}
                   </motion.h3>
@@ -123,14 +123,14 @@ const DashboardOverview = ({ summary }: DashboardOverviewProps) => {
                     rotate: isExpanded ? 180 : 0,
                   }}
                   transition={{ duration: 0.3 }}
-                  className='flex items-center gap-1 text-xs text-gray-400 group-hover:text-gray-300 transition-colors'
+                  className='flex items-center gap-1 text-xs text-slate-500 group-hover:text-slate-700 transition-colors'
                 >
                   <ChevronDown className='w-4 h-4' />
                   Click to view details
                 </motion.div>
               )}
               {card.link && !card.details && (
-                <motion.div className='flex items-center gap-1 text-xs text-emerald-400'>
+                <motion.div className='flex items-center gap-1 text-xs text-emerald-600'>
                   View Details <ArrowRight className='w-4 h-4' />
                 </motion.div>
               )}
@@ -143,9 +143,9 @@ const DashboardOverview = ({ summary }: DashboardOverviewProps) => {
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
-                  className='border-t border-white/10 px-6 pb-6 relative z-10'
+                  className='border-t border-slate-200 px-6 pb-6 relative z-10'
                 >
-                  <p className='text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider'>
+                  <p className='text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider'>
                     {card.detailLabel}
                   </p>
                   <div className='space-y-3 max-h-64 overflow-y-auto'>
@@ -155,12 +155,12 @@ const DashboardOverview = ({ summary }: DashboardOverviewProps) => {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        className='flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:border-white/20 transition-colors'
+                        className='flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors'
                       >
-                        <span className='text-sm font-medium text-gray-300'>
+                        <span className='text-sm font-medium text-slate-600'>
                           {item.month}
                         </span>
-                        <span className='text-sm font-bold text-emerald-400'>
+                        <span className='text-sm font-bold text-emerald-600'>
                           {formatCurrency(item.totalSales)}
                         </span>
                       </motion.div>

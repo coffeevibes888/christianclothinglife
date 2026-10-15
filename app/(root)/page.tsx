@@ -3,8 +3,11 @@ import { getLatestProductsByCategory } from '@/lib/actions/product.actions';
 import ViewAllProductsButton from '@/components/view-all-products-button';
 import DealCountdown from '@/components/deal-countdown';
 import Hero from '@/components/hero/hero';
+import ValueProps from '@/components/home/value-props';
+import CategoryTiles from '@/components/home/category-tiles';
 import CustomerReviews from '@/components/home/customer-reviews';
 import HomeContactCard from '@/components/home/home-contact-card';
+import CtaBand from '@/components/home/cta-band';
 import type { Product } from '@/types';
 
 type RawProduct = {
@@ -39,56 +42,78 @@ const normalizeProducts = (products: RawProduct[]): Product[] =>
   });
 
 const Homepage = async () => {
-  // Themed sections: make sure your products use these category names (e.g. "Faith", "Funny", "Deals", "Christmas")
-  const faithBasedProductsRaw = await getLatestProductsByCategory('Faith', 20);
-  const funnyProductsRaw = await getLatestProductsByCategory('Funny', 20);
-  const positiveProductsRaw = await getLatestProductsByCategory('Positive', 20);
-  const christmasProductsRaw = await getLatestProductsByCategory('Christmas', 20);
-  const firstProductsRaw = await getLatestProductsByCategory('First', 20);
+  // Main categories — tag products with these exact names in the admin:
+  // "T-Shirts", "Hoodies", "Coffee Mugs", "Seasonal", "Christian Humor"
+  const [tshirtsRaw, hoodiesRaw, mugsRaw, seasonalRaw, humorRaw] = await Promise.all([
+    getLatestProductsByCategory('T-Shirts', 20),
+    getLatestProductsByCategory('Hoodies', 20),
+    getLatestProductsByCategory('Coffee Mugs', 20),
+    getLatestProductsByCategory('Seasonal', 20),
+    getLatestProductsByCategory('Christian Humor', 20),
+  ]);
 
-  const faithBasedProducts = normalizeProducts(faithBasedProductsRaw);
-  const funnyProducts = normalizeProducts(funnyProductsRaw);
-  const positiveProducts = normalizeProducts(positiveProductsRaw);
-  const christmasProducts = normalizeProducts(christmasProductsRaw);
-  const firstProducts = normalizeProducts(firstProductsRaw);
+  const tshirts = normalizeProducts(tshirtsRaw);
+  const hoodies = normalizeProducts(hoodiesRaw);
+  const mugs = normalizeProducts(mugsRaw);
+  const seasonal = normalizeProducts(seasonalRaw);
+  const humor = normalizeProducts(humorRaw);
 
   return (
     <>
       <Hero />
 
-      {/* <ProductList data={latestProducts} title='Newest Arrivals' /> */}
+      {/* Trust / value props */}
+      <ValueProps />
 
-      {/* {featuredProducts.length > 0 && (
-        <ProductCarousel data={featuredProducts} />
-      )} */}
+      {/* Shop by collection tiles */}
+      <CategoryTiles />
 
-      {/* Themed collections as simple entry points */}
-      {faithBasedProducts.length > 0 && (
-        <ProductList data={faithBasedProducts} title='Faith Based Vibes' />
+      {/* Category collections (infinite scroll rows) */}
+      {tshirts.length > 0 && (
+        <ProductList
+          data={tshirts}
+          title='T-Shirts'
+          viewAllHref='/search?category=T-Shirts'
+        />
       )}
-      {positiveProducts.length > 0 && (
-        <ProductList data={positiveProducts} title="Positive Vibes" />
+      {hoodies.length > 0 && (
+        <ProductList
+          data={hoodies}
+          title='Hoodies'
+          viewAllHref='/search?category=Hoodies'
+        />
       )}
-      {firstProducts.length > 0 && (
-        <ProductList data={firstProducts} title='Military & First Responders' />
+      {mugs.length > 0 && (
+        <ProductList
+          data={mugs}
+          title='Coffee Mugs'
+          viewAllHref='/search?category=Coffee Mugs'
+        />
       )}
-
-      {funnyProducts.length > 0 && (
-        <ProductList data={funnyProducts} title='Funny & Bold' />
+      {seasonal.length > 0 && (
+        <ProductList
+          data={seasonal}
+          title='Seasonal'
+          viewAllHref='/search?category=Seasonal'
+        />
       )}
-
-
-      {christmasProducts.length > 0 && (
-        <ProductList data={christmasProducts} title='Holiday & Christmas' />
+      {humor.length > 0 && (
+        <ProductList
+          data={humor}
+          title='Christian Humor'
+          viewAllHref='/search?category=Christian Humor'
+        />
       )}
-
 
       <ViewAllProductsButton />
 
-      {/* Trust & contact */}
+      {/* Deal, social proof & contact */}
       <DealCountdown />
       <CustomerReviews />
       <HomeContactCard />
+
+      {/* Conversion band */}
+      <CtaBand />
     </>
   );
 };

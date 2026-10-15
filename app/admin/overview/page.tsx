@@ -29,20 +29,20 @@ const AdminOverviewPage = async () => {
     <div className='w-full min-h-screen px-4 py-8 md:px-8'>
       <div className='max-w-7xl mx-auto space-y-8'>
         <div>
-          <h1 className='text-4xl md:text-5xl font-bold text-white mb-2'>Dashboard</h1>
-          <p className='text-gray-300'>Monitor your store performance and recent activity</p>
+          <h1 className='text-4xl md:text-5xl font-bold text-slate-900 mb-2'>Dashboard</h1>
+          <p className='text-slate-500'>Monitor your store performance and recent activity</p>
         </div>
 
         <DashboardOverview summary={serializedSummary} />
 
         <div className='grid gap-8 lg:grid-cols-7'>
-          <div className='lg:col-span-4 backdrop-blur-md bg-white/10 border border-white/20 rounded-xl p-8 shadow-lg'>
+          <div className='lg:col-span-4 bg-white border border-slate-200 rounded-xl p-8 shadow-lg shadow-slate-900/5'>
             <div className='flex items-center justify-between mb-8'>
               <div>
-                <h3 className='text-2xl font-bold text-white'>Sales Overview</h3>
-                <p className='text-sm text-gray-400 mt-1'>Monthly revenue trend</p>
+                <h3 className='text-2xl font-bold text-slate-900'>Sales Overview</h3>
+                <p className='text-sm text-slate-500 mt-1'>Monthly revenue trend</p>
               </div>
-              <TrendingUp className='w-6 h-6 text-violet-400' />
+              <TrendingUp className='w-6 h-6 text-violet-500' />
             </div>
             <Charts
               data={{
@@ -51,38 +51,38 @@ const AdminOverviewPage = async () => {
             />
           </div>
 
-          <div className='lg:col-span-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-xl p-8 shadow-lg'>
+          <div className='lg:col-span-3 bg-white border border-slate-200 rounded-xl p-8 shadow-lg shadow-slate-900/5'>
             <div className='flex items-center justify-between mb-8'>
               <div>
-                <h3 className='text-2xl font-bold text-white'>Recent Sales</h3>
-                <p className='text-sm text-gray-400 mt-1'>Latest transactions</p>
+                <h3 className='text-2xl font-bold text-slate-900'>Recent Sales</h3>
+                <p className='text-sm text-slate-500 mt-1'>Latest transactions</p>
               </div>
             </div>
             <div className='overflow-x-auto'>
               <Table>
                 <TableHeader>
-                  <TableRow className='border-white/10 hover:bg-white/5'>
-                    <TableHead className='text-gray-300'>BUYER</TableHead>
-                    <TableHead className='text-gray-300'>DATE</TableHead>
-                    <TableHead className='text-gray-300'>TOTAL</TableHead>
-                    <TableHead className='text-gray-300'>ACTION</TableHead>
+                  <TableRow className='border-slate-200 hover:bg-slate-50'>
+                    <TableHead className='text-slate-500'>BUYER</TableHead>
+                    <TableHead className='text-slate-500'>DATE</TableHead>
+                    <TableHead className='text-slate-500'>TOTAL</TableHead>
+                    <TableHead className='text-slate-500'>ACTION</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {summary.latestSales.slice(0, 8).map((order) => (
-                    <TableRow key={order.id} className='border-white/10 hover:bg-white/5 transition-colors'>
-                      <TableCell className='text-gray-300 font-medium'>
+                    <TableRow key={order.id} className='border-slate-100 hover:bg-slate-50 transition-colors'>
+                      <TableCell className='text-slate-700 font-medium'>
                         {order?.user?.name ? order.user.name : 'Deleted User'}
                       </TableCell>
-                      <TableCell className='text-gray-400 text-sm'>
+                      <TableCell className='text-slate-500 text-sm'>
                         {formatDateTime(order.createdAt).dateOnly}
                       </TableCell>
-                      <TableCell className='text-white font-semibold'>
+                      <TableCell className='text-slate-900 font-semibold'>
                         {formatCurrency(order.totalPrice)}
                       </TableCell>
                       <TableCell>
                         <Link href={`/order/${order.id}`}>
-                          <span className='text-violet-400 hover:text-violet-300 text-sm font-medium transition-colors'>View</span>
+                          <span className='text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors'>View</span>
                         </Link>
                       </TableCell>
                     </TableRow>
@@ -91,7 +91,7 @@ const AdminOverviewPage = async () => {
               </Table>
             </div>
             <Link href='/admin/orders'>
-              <button className='w-full mt-6 py-2 px-4 text-sm font-medium text-white border border-white/20 rounded-lg hover:bg-white/10 transition-colors'>
+              <button className='w-full mt-6 py-2 px-4 text-sm font-medium text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors'>
                 View All Sales
               </button>
             </Link>

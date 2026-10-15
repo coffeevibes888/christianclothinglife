@@ -167,3 +167,44 @@
   white-space: nowrap;
   animation: banner-marquee-scroll 52s linear infinite;
 }
+
+@keyframes gradient-x {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 7s ease infinite;
+}
+
+@keyframes blob-float {
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(24px, -28px) scale(1.08);
+  }
+  66% {
+    transform: translate(-20px, 18px) scale(0.95);
+  }
+}
+
+.animate-blob {
+  animation: blob-float 14s ease-in-out infinite;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
