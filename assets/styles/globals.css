@@ -208,3 +208,10 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Prevent off-screen fixed elements (e.g. the mobile slide-out menu) from
+   creating horizontal scroll on mobile. `clip` is used instead of `hidden`
+   so it doesn't interfere with position: sticky (the header). */
+html {
+  overflow-x: clip;
+}

@@ -1,7 +1,7 @@
 'use client';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState } from 'react';
-import { productDefaultValues } from '@/lib/constants';
+import { useEffect, useRef, useState } from 'react';
+import { productDefaultValues, PRODUCT_CATEGORIES } from '@/lib/constants';
 import { insertProductSchema, updateProductSchema } from '@/lib/validators';
 import { Product } from '@/types';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,7 +13,7 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { createProduct, updateProduct } from '@/lib/actions/product.actions';
-import { UploadButton, UploadDropzone } from '@/lib/uploadthing';
+import { UploadButton, UploadDropzone, useUploadThing } from '@/lib/uploadthing';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Checkbox } from '../ui/checkbox';
@@ -68,6 +68,59 @@ const ProductForm = ({
   const banner = form.watch('banner');
   const [sizes, setSizes] = useState<{ id: string; name: string; slug: string }[]>([]);
   const saleDiscountType = form.watch('saleDiscountType') ?? 'percentage';
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Shared handler: append uploaded image URLs to the form (uses getValues to
+  // avoid stale closures when uploads complete).
+  const appendUploadedImages = (res: { url: string }[] | undefined) => {
+    const urls = (res || [])
+      .map((r) => r.url)
+      .filter((u): u is string => Boolean(u));
+    if (!urls.length) return;
+    const currentImages = (form.getValues('images') as string[]) || [];
+    const currentColors = (form.getValues('imageColors') as string[]) || [];
+    form.setValue('images', [...currentImages, ...urls]);
+    form.setValue('imageColors', [...currentColors, ...urls.map(() => '')]);
+    toast({
+      description: `Added ${urls.length} image${urls.length > 1 ? 's' : ''}.`,
+    });
+  };
+
+  const { startUpload, isUploading: isFolderUploading } = useUploadThing(
+    'imageUploader',
+    {
+      onClientUploadComplete: (res) => {
+        appendUploadedImages(res as { url: string }[]);
+      },
+      onUploadError: (error) => {
+        toast({ variant: 'destructive', description: `ERROR! ${error.message}` });
+      },
+    }
+  );
+
+  // Enable folder selection on the hidden input (non-standard attributes that
+  // React's typings don't expose, so we set them imperatively).
+  useEffect(() => {
+    if (folderInputRef.current) {
+      folderInputRef.current.setAttribute('webkitdirectory', '');
+      folderInputRef.current.setAttribute('directory', '');
+    }
+  }, []);
+
+  const handleFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter((f) =>
+      f.type.startsWith('image/')
+    );
+    e.target.value = '';
+    if (!files.length) {
+      toast({
+        variant: 'destructive',
+        description: 'No image files found in that folder.',
+      });
+      return;
+    }
+    startUpload(files);
+  };
 
   const handleOnSaleChange = (v: boolean | 'indeterminate') => {
     const checked = Boolean(v);
@@ -155,7 +208,20 @@ const ProductForm = ({
               <FormItem className="w-full">
                 <FormLabel>Category</FormLabel>
                 <FormControl>
-                  <Input placeholder="T-Shirts, Hoodies, Coffee Mugs, Seasonal, or Christian Humor" {...field} />
+                  <select
+                    {...field}
+                    value={field.value ?? ''}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="" disabled>
+                      Select a category
+                    </option>
+                    {PRODUCT_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -291,23 +357,12 @@ const ProductForm = ({
                           'bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold px-5 py-2 rounded-md after:bg-blue-700',
                       }}
                       content={{
-                        label: 'Drag & drop images here, or click to select multiple images at once',
-                        allowedContent: 'Up to 30 images, 4MB each — add them all in one go',
+                        label: 'Drag & drop images (or a whole folder) here, or click to select many at once',
+                        allowedContent: 'Up to 50 images, 4MB each — add them all in one go',
                       }}
-                      onClientUploadComplete={(res: { url: string }[]) => {
-                        const urls = (res || [])
-                          .map((r) => r.url)
-                          .filter((u): u is string => Boolean(u));
-                        if (!urls.length) return;
-                        form.setValue('images', [...images, ...urls]);
-                        form.setValue('imageColors', [
-                          ...imageColors,
-                          ...urls.map(() => ''),
-                        ]);
-                        toast({
-                          description: `Added ${urls.length} image${urls.length > 1 ? 's' : ''}.`,
-                        });
-                      }}
+                      onClientUploadComplete={(res: { url: string }[]) =>
+                        appendUploadedImages(res)
+                      }
                       onUploadError={(error: Error) => {
                         toast({
                           variant: 'destructive',
@@ -316,6 +371,29 @@ const ProductForm = ({
                       }}
                     />
                   </FormControl>
+
+                  {/* Folder picker (opens the OS folder dialog) */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      ref={folderInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleFolderSelect}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isFolderUploading}
+                      onClick={() => folderInputRef.current?.click()}
+                    >
+                      {isFolderUploading ? 'Uploading folder…' : '📁 Select a folder of images'}
+                    </Button>
+                    <span className="text-xs text-slate-500">
+                      Grabs every image in the folder at once (up to 50).
+                    </span>
+                  </div>
                 </CardContent>
               </Card>
               <FormMessage />

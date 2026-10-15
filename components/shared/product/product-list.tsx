@@ -98,7 +98,7 @@ const ProductList = ({
             {/* LEFT ARROW */}
             <button
               onClick={scrollLeft}
-              className={`absolute left-1 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-lg backdrop-blur transition-all duration-200 hover:bg-white hover:text-indigo-600 ${
+              className={`absolute left-1 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-lg backdrop-blur transition-all duration-200 hover:bg-white hover:text-indigo-600 md:flex ${
                 !showLeftArrow ? 'pointer-events-none opacity-0' : 'opacity-100'
               }`}
               aria-label="Scroll left"
@@ -121,7 +121,7 @@ const ProductList = ({
             {/* SCROLL ROW */}
             <div
               ref={scrollRef}
-              className="flex gap-6 overflow-x-auto scroll-smooth px-2 py-4 no-scrollbar"
+              className="flex gap-4 overflow-x-auto scroll-smooth px-2 py-4 no-scrollbar sm:gap-6"
               style={{
                 scrollBehavior: 'smooth',
                 msOverflowStyle: 'none',
@@ -131,7 +131,7 @@ const ProductList = ({
               {shownData.map((product) => (
                 <div
                   key={product.slug}
-                  className="w-[250px] flex-shrink-0"
+                  className="w-[160px] flex-shrink-0 sm:w-[190px] md:w-[250px]"
                 >
                   <ProductCard product={product} />
                 </div>
@@ -141,7 +141,7 @@ const ProductList = ({
             {/* RIGHT ARROW */}
             <button
               onClick={scrollRight}
-              className={`absolute right-1 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-lg backdrop-blur transition-all duration-200 hover:bg-white hover:text-indigo-600 ${
+              className={`absolute right-1 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-lg backdrop-blur transition-all duration-200 hover:bg-white hover:text-indigo-600 md:flex ${
                 !showRightArrow ? 'pointer-events-none opacity-0' : 'opacity-100'
               }`}
               aria-label="Scroll right"
@@ -150,9 +150,12 @@ const ProductList = ({
             </button>
           </div>
         ) : (
-          <div className="flex flex-wrap justify-start gap-6 px-2 py-4">
+          <div className="flex gap-4 overflow-x-auto px-2 py-4 no-scrollbar sm:gap-6 md:flex-wrap md:overflow-visible">
             {shownData.map((product) => (
-              <div key={product.slug} className="w-[250px]">
+              <div
+                key={product.slug}
+                className="w-[160px] flex-shrink-0 sm:w-[190px] md:w-[250px]"
+              >
                 <ProductCard product={product} />
               </div>
             ))}

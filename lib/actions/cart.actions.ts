@@ -6,6 +6,12 @@ import { convertToPlainObject, formatError, round2 } from '../utils';
 import { auth } from '@/auth';
 import { prisma } from '@/db/prisma';
 import { cartItemSchema, insertCartSchema } from '../validators';
+import {
+  CATEGORY_WEIGHTS_OZ,
+  DEFAULT_ITEM_WEIGHT_OZ,
+  SHIPPING_BASE_HANDLING,
+  SHIPPING_RATE_PER_LB,
+} from '../constants';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 
@@ -18,27 +24,42 @@ const calcPrice = async (
     items.reduce((acc, item) => acc + Number(item.price) * item.qty, 0)
   );
 
-  const [shippingSettings, taxSettings, promoCode] = await Promise.all([
+  const productIds = Array.from(
+    new Set(items.map((i) => i.productId).filter(Boolean))
+  );
+
+  const [shippingSettings, promoCode, products] = await Promise.all([
     prisma.shippingSettings.findFirst(),
-    prisma.taxSettings.findFirst(),
     promoCodeId
-      ? prisma.promoCode.findFirst({
-          where: { id: promoCodeId },
-        })
+      ? prisma.promoCode.findFirst({ where: { id: promoCodeId } })
       : null,
+    productIds.length
+      ? prisma.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, category: true },
+        })
+      : Promise.resolve([] as { id: string; category: string }[]),
   ]);
 
-  const baseShippingCost = shippingSettings
-    ? Number(shippingSettings.baseShippingCost)
-    : 10;
   const freeShippingThreshold = shippingSettings
     ? Number(shippingSettings.freeShippingThreshold)
     : 100;
-  const taxRate = taxSettings ? Number(taxSettings.taxRate) / 100 : 0.15;
 
-  let shippingPrice = itemsPrice > freeShippingThreshold ? 0 : baseShippingCost;
-  shippingPrice = round2(shippingPrice);
+  // --- Weight-based shipping -------------------------------------------------
+  // Estimate the order's weight from each item's category, then charge a flat
+  // handling fee plus a per-pound rate. Orders over the free-shipping
+  // threshold ship free (honors the "Free shipping over $75" promise).
+  const categoryByProductId = new Map(
+    products.map((p) => [p.id, (p.category || '').trim().toLowerCase()])
+  );
+  const totalWeightOz = items.reduce((acc, item) => {
+    const cat = categoryByProductId.get(item.productId) || '';
+    const perItemOz = CATEGORY_WEIGHTS_OZ[cat] ?? DEFAULT_ITEM_WEIGHT_OZ;
+    return acc + perItemOz * item.qty;
+  }, 0);
+  const totalWeightLb = totalWeightOz / 16;
 
+  // Promo discount applies to the item subtotal.
   let discountedPrice = itemsPrice;
   if (promoCode && promoCode.isActive) {
     if (
@@ -55,7 +76,13 @@ const calcPrice = async (
     }
   }
 
-  const taxPrice = round2(discountedPrice * taxRate);
+  const shippingPrice =
+    discountedPrice >= freeShippingThreshold
+      ? 0
+      : round2(SHIPPING_BASE_HANDLING + totalWeightLb * SHIPPING_RATE_PER_LB);
+
+  // Tax removed per store policy.
+  const taxPrice = 0;
   const totalPrice = round2(discountedPrice + taxPrice + shippingPrice);
 
   return {

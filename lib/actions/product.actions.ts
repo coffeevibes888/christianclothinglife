@@ -37,12 +37,23 @@ export async function getLatestProducts(limit = LATEST_PRODUCTS_LIMIT) {
 
 // Get latest products for a specific category (for themed sections like Faith, Funny, Deals, etc.)
 export async function getLatestProductsByCategory(category: string, limit = LATEST_PRODUCTS_LIMIT) {
+  const trimmed = category.trim();
+  // Tolerate singular/plural mismatches (e.g. "T-Shirt" vs "T-Shirts").
+  const variants = Array.from(
+    new Set(
+      [
+        trimmed,
+        trimmed.endsWith('s') ? trimmed.slice(0, -1) : `${trimmed}s`,
+      ].filter(Boolean)
+    )
+  );
+
   const data = await prisma.product.findMany({
     where: {
-      OR: [
-        { category: { equals: category, mode: 'insensitive' } },
-        { subCategory: { equals: category, mode: 'insensitive' } },
-      ],
+      OR: variants.flatMap((v) => [
+        { category: { equals: v, mode: 'insensitive' as const } },
+        { subCategory: { equals: v, mode: 'insensitive' as const } },
+      ]),
     },
     take: limit,
     orderBy: { createdAt: 'desc' },

@@ -37,6 +37,36 @@ export const DEFAULT_PAYMENT_METHOD =
 
 export const PAGE_SIZE = Number(process.env.PAGE_SIZE) || 12;
 
+// Fixed product categories (keep these in sync with the homepage rows and nav)
+export const PRODUCT_CATEGORIES = [
+  'T-Shirts',
+  'Hoodies',
+  'Coffee Mugs',
+  'Seasonal',
+  'Christian Humor',
+] as const;
+
+// Weight-based shipping configuration.
+// Tax is 0. Shipping is a flat handling fee plus a per-pound rate based on the
+// estimated weight of the items in the cart. Tune these to match your carrier
+// (Printful / Amazon Merch) rates. Values can be overridden via env.
+export const SHIPPING_BASE_HANDLING =
+  Number(process.env.SHIPPING_BASE_HANDLING) || 3.99;
+export const SHIPPING_RATE_PER_LB =
+  Number(process.env.SHIPPING_RATE_PER_LB) || 2.5;
+export const DEFAULT_ITEM_WEIGHT_OZ =
+  Number(process.env.DEFAULT_ITEM_WEIGHT_OZ) || 10;
+
+// Estimated per-item weight (in ounces) by category, including packaging.
+export const CATEGORY_WEIGHTS_OZ: Record<string, number> = {
+  't-shirts': 7,
+  't-shirt': 7,
+  hoodies: 24,
+  hoodie: 24,
+  'coffee mugs': 20,
+  'coffee mug': 20,
+};
+
 export const productDefaultValues = {
   name: '',
   slug: '',
