@@ -44,6 +44,7 @@ export const PRODUCT_CATEGORIES = [
   'Coffee Mugs',
   'Seasonal',
   'Christian Humor',
+  'Positive Vibes',
 ] as const;
 
 // Weight-based shipping configuration.

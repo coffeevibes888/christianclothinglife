@@ -44,19 +44,22 @@ const normalizeProducts = (products: RawProduct[]): Product[] =>
 const Homepage = async () => {
   // Main categories — tag products with these exact names in the admin:
   // "T-Shirts", "Hoodies", "Coffee Mugs", "Seasonal", "Christian Humor"
-  const [tshirtsRaw, hoodiesRaw, mugsRaw, seasonalRaw, humorRaw] = await Promise.all([
-    getLatestProductsByCategory('T-Shirts', 20),
-    getLatestProductsByCategory('Hoodies', 20),
-    getLatestProductsByCategory('Coffee Mugs', 20),
-    getLatestProductsByCategory('Seasonal', 20),
-    getLatestProductsByCategory('Christian Humor', 20),
-  ]);
+  const [tshirtsRaw, hoodiesRaw, mugsRaw, seasonalRaw, humorRaw, positiveRaw] =
+    await Promise.all([
+      getLatestProductsByCategory('T-Shirts', 20),
+      getLatestProductsByCategory('Hoodies', 20),
+      getLatestProductsByCategory('Coffee Mugs', 20),
+      getLatestProductsByCategory('Seasonal', 20),
+      getLatestProductsByCategory('Christian Humor', 20),
+      getLatestProductsByCategory('Positive Vibes', 20),
+    ]);
 
   const tshirts = normalizeProducts(tshirtsRaw);
   const hoodies = normalizeProducts(hoodiesRaw);
   const mugs = normalizeProducts(mugsRaw);
   const seasonal = normalizeProducts(seasonalRaw);
   const humor = normalizeProducts(humorRaw);
+  const positive = normalizeProducts(positiveRaw);
 
   return (
     <>
@@ -98,6 +101,13 @@ const Homepage = async () => {
           data={humor}
           title='Christian Humor'
           viewAllHref='/search?category=Christian Humor'
+        />
+      )}
+      {positive.length > 0 && (
+        <ProductList
+          data={positive}
+          title='Positive Vibes'
+          viewAllHref='/search?category=Positive Vibes'
         />
       )}
 

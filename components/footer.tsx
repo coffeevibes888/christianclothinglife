@@ -9,6 +9,7 @@ const shopLinks = [
   { href: '/search?category=Coffee Mugs', label: 'Coffee Mugs' },
   { href: '/search?category=Seasonal', label: 'Seasonal' },
   { href: '/search?category=Christian Humor', label: 'Christian Humor' },
+  { href: '/search?category=Positive Vibes', label: 'Positive Vibes' },
   { href: '/search', label: 'All Products' },
 ];
 

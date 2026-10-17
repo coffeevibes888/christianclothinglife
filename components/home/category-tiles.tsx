@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Shirt, Layers, Coffee, Gift, Smile, ArrowRight } from 'lucide-react';
+import { Shirt, Layers, Coffee, Gift, Smile, Sparkles, ArrowRight } from 'lucide-react';
 import SectionHeading from './section-heading';
 
 const collections = [
@@ -37,6 +37,13 @@ const collections = [
     href: '/search?category=Christian Humor',
     icon: Smile,
     gradient: 'from-violet-600 via-fuchsia-500 to-fuchsia-600',
+  },
+  {
+    label: 'Positive Vibes',
+    description: 'Uplifting, feel-good designs',
+    href: '/search?category=Positive Vibes',
+    icon: Sparkles,
+    gradient: 'from-amber-500 via-orange-500 to-rose-500',
   },
 ];
 
