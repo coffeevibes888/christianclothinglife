@@ -4,7 +4,7 @@ import ViewAllProductsButton from '@/components/view-all-products-button';
 import DealCountdown from '@/components/deal-countdown';
 import Hero from '@/components/hero/hero';
 import ValueProps from '@/components/home/value-props';
-import CategoryTiles from '@/components/home/category-tiles';
+// import CategoryTiles from '@/components/home/category-tiles';
 import CustomerReviews from '@/components/home/customer-reviews';
 import HomeContactCard from '@/components/home/home-contact-card';
 import CtaBand from '@/components/home/cta-band';
@@ -61,14 +61,10 @@ const Homepage = async () => {
   return (
     <>
       <Hero />
+      <CustomerReviews />
+     
+      {/* <CategoryTiles /> */}
 
-      {/* Trust / value props */}
-      <ValueProps />
-
-      {/* Shop by collection tiles */}
-      <CategoryTiles />
-
-      {/* Category collections (infinite scroll rows) */}
       {tshirts.length > 0 && (
         <ProductList
           data={tshirts}
@@ -106,13 +102,9 @@ const Homepage = async () => {
       )}
 
       <ViewAllProductsButton />
-
-      {/* Deal, social proof & contact */}
+      <ValueProps />
       <DealCountdown />
-      <CustomerReviews />
       <HomeContactCard />
-
-      {/* Conversion band */}
       <CtaBand />
     </>
   );

@@ -120,7 +120,7 @@ function Product3DRotator() {
   const products = [
     { src: '/images/christianHero.png', alt: 'Product 1' },
     { src: '/images/christianHero2.png', alt: 'Product 2' },
-    { src: '/images/christianHero3.pngg', alt: 'Product 3' },
+    { src: '/images/christianHero3.png', alt: 'Product 3' },
   ];
 
   useEffect(() => {
