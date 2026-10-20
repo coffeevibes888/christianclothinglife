@@ -1,6 +1,15 @@
 import { getPublishedBlogPosts } from '@/lib/actions/blog.actions';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { formatDateTime } from '@/lib/utils';
+import { buildMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = buildMetadata({
+  title: 'Blog',
+  description:
+    'Stories, inspiration, and behind-the-scenes on faith, style, and living out your vibe.',
+  path: '/blog',
+});
 
 type BlogListPost = Awaited<ReturnType<typeof getPublishedBlogPosts>>[number] & {
   reactions?: { type: string }[];

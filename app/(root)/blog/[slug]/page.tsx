@@ -1,8 +1,37 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { getBlogPostBySlug, toggleBlogLike, addBlogComment } from '@/lib/actions/blog.actions';
 import { formatDateTime } from '@/lib/utils';
 import { auth } from '@/auth';
 import Link from 'next/link';
+import { JsonLd } from '@/components/seo/json-ld';
+import { buildMetadata, articleSchema, breadcrumbSchema } from '@/lib/seo';
+
+export async function generateMetadata(props: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await props.params;
+  const post = await getBlogPostBySlug(slug);
+
+  if (!post || !post.isPublished) {
+    return buildMetadata({
+      title: 'Post Not Found',
+      path: `/blog/${slug}`,
+      noIndex: true,
+    });
+  }
+
+  return buildMetadata({
+    title: post.title,
+    description: post.excerpt || undefined,
+    path: `/blog/${slug}`,
+    type: 'article',
+    images: post.coverImage ? [post.coverImage] : undefined,
+    publishedTime: new Date(post.createdAt).toISOString(),
+    modifiedTime: new Date(post.updatedAt || post.createdAt).toISOString(),
+    authors: post.author?.name ? [post.author.name] : undefined,
+  });
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const BlogPostPage = async (props: any) => {
@@ -26,6 +55,24 @@ const BlogPostPage = async (props: any) => {
 
   return (
     <main className="w-full min-h-screen py-8">
+      <JsonLd
+        data={[
+          articleSchema({
+            title: post.title,
+            slug: post.slug,
+            excerpt: post.excerpt,
+            coverImage: post.coverImage,
+            authorName: post.author?.name,
+            createdAt: post.createdAt,
+            updatedAt: post.updatedAt,
+          }),
+          breadcrumbSchema([
+            { name: 'Home', path: '/' },
+            { name: 'Blog', path: '/blog' },
+            { name: post.title, path: `/blog/${post.slug}` },
+          ]),
+        ]}
+      />
       <div className="container mx-auto max-w-3xl">
         <div className="space-y-8">
           <div className="space-y-6">

@@ -1,3 +1,13 @@
+import type { Metadata } from 'next';
+import { buildMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = buildMetadata({
+  title: 'About',
+  description:
+    'The story behind the brand — faith, humor, and real-life experiences stitched into every design.',
+  path: '/about',
+});
+
 const AboutPage = () => {
   const photos = [
     { id: 1, label: 'Founder', src: '/images/allenPic2.jpg' },

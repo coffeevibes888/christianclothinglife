@@ -32,8 +32,6 @@ export default function ProductDetailClient({
   product: Product;
   cart?: Cart;
 }) {
-  console.log('PRODUCT DATA:', product); // Debug: full product object
-
   const baseImages = useMemo(() => product.images || [], [product.images]);
   const [activeImage, setActiveImage] = useState<string>(baseImages[0] || '');
   const [activeColorName, setActiveColorName] = useState<string | undefined>();
@@ -160,6 +158,7 @@ export default function ProductDetailClient({
             activeImage={activeImage}
             onImageClick={handleImageChange}
             colorName={activeColorName}
+            productName={product.name}
           />
         </div>
 

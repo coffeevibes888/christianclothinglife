@@ -8,6 +8,8 @@ import {
 import { logSearchQuery } from '@/lib/actions/tracking-events.actions';
 import Link from 'next/link';
 import { Product } from '@/types';
+import type { Metadata } from 'next';
+import { buildMetadata } from '@/lib/seo';
 
 const prices = [
   {
@@ -43,7 +45,7 @@ export async function generateMetadata(props: {
     price: string;
     rating: string;
   }>;
-}) {
+}): Promise<Metadata> {
   const {
     q = 'all',
     category = 'all',
@@ -52,24 +54,44 @@ export async function generateMetadata(props: {
   } = await props.searchParams;
 
   const isQuerySet = q && q !== 'all' && q.trim() !== '';
-  const isCategorySet =
-    category && category !== 'all' && category.trim() !== '';
+  const isCategorySet = category && category !== 'all' && category.trim() !== '';
   const isPriceSet = price && price !== 'all' && price.trim() !== '';
   const isRatingSet = rating && rating !== 'all' && rating.trim() !== '';
 
-  if (isQuerySet || isCategorySet || isPriceSet || isRatingSet) {
-    return {
-      title: `
-      Search ${isQuerySet ? q : ''} 
-      ${isCategorySet ? `: Category ${category}` : ''}
-      ${isPriceSet ? `: Price ${price}` : ''}
-      ${isRatingSet ? `: Rating ${rating}` : ''}`,
-    };
-  } else {
-    return {
-      title: 'Search Products',
-    };
+  // Category-only pages are useful landing pages, so keep them indexable with a
+  // clean canonical. Free-text queries and fine-grained filter combinations are
+  // noindexed to avoid thin/duplicate pages, while still being crawlable.
+  if (isCategorySet && !isQuerySet && !isPriceSet && !isRatingSet) {
+    return buildMetadata({
+      title: `${category} — Shop the Collection`,
+      description: `Browse our ${category} collection. Faith-inspired designs with secure checkout and easy 30-day returns.`,
+      path: `/search?category=${encodeURIComponent(category)}`,
+      keywords: [category, 'Christian clothing', 'faith apparel'],
+    });
   }
+
+  if (isQuerySet || isCategorySet || isPriceSet || isRatingSet) {
+    const parts = [
+      isQuerySet ? `“${q}”` : null,
+      isCategorySet ? `Category: ${category}` : null,
+      isPriceSet ? `Price: ${price}` : null,
+      isRatingSet ? `Rating: ${rating}★ & up` : null,
+    ].filter(Boolean);
+
+    return buildMetadata({
+      title: `Search ${parts.join(' · ')}`.trim(),
+      description: 'Search results across our faith-inspired apparel and gifts.',
+      path: '/search',
+      noIndex: true,
+    });
+  }
+
+  return buildMetadata({
+    title: 'Search Products',
+    description:
+      'Search our full collection of Christian t-shirts, hoodies, mugs, and gifts.',
+    path: '/search',
+  });
 }
 
 const SearchPage = async (props: {

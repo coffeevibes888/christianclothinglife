@@ -9,6 +9,15 @@ import CustomerReviews from '@/components/home/customer-reviews';
 import HomeContactCard from '@/components/home/home-contact-card';
 import CtaBand from '@/components/home/cta-band';
 import type { Product } from '@/types';
+import type { Metadata } from 'next';
+import { buildMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = buildMetadata({
+  title: 'Faith-Inspired Clothing, Hoodies & Gifts',
+  description:
+    'Shop Christian t-shirts, hoodies, coffee mugs, and gifts that wear your faith with style. Free shipping over $75 and easy 30-day returns.',
+  path: '/',
+});
 
 type RawProduct = {
   subCategory?: unknown;

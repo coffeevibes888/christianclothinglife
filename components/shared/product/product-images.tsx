@@ -7,14 +7,19 @@ const ProductImages = ({
   images, 
   activeImage, 
   onImageClick,
-  colorName
+  colorName,
+  productName,
 }: { 
   images: string[]; 
   activeImage?: string;
   onImageClick?: (image: string) => void;
   colorName?: string;
+  productName?: string;
 }) => {
   const [current, setCurrent] = useState(0);
+
+  const baseAlt = productName || 'Product';
+  const mainAlt = colorName ? `${baseAlt} — ${colorName}` : baseAlt;
 
   useEffect(() => {
     const activeIndex = images.findIndex(img => img === activeImage);
@@ -37,7 +42,7 @@ const ProductImages = ({
       <div className='relative'>
         <Image
           src={activeImage || images[current]}
-          alt='product image'
+          alt={mainAlt}
           width={1000}
           height={1000}
           className='min-h-[300px] object-cover object-center'
@@ -58,7 +63,7 @@ const ProductImages = ({
               current === index && 'border-orange-500'
             )}
           >
-            <Image src={image} alt='image' width={100} height={100} />
+            <Image src={image} alt={`${baseAlt} thumbnail ${index + 1}`} width={100} height={100} />
           </div>
         ))}
       </div>
