@@ -3,7 +3,6 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { Check, Loader } from 'lucide-react';
-import AddToCart from './add-to-cart';
 import { Cart, CartItem } from '@/types';
 import ProductPrice from '@/components/shared/product/product-price';
 import { Button } from '@/components/ui/button';
@@ -44,7 +43,6 @@ function isLightColor(hex: string): boolean {
 export default function VariantSelector({
   variants,
   product,
-  cart,
   onColorSelected,
   onVariantChange,
 }: {
@@ -157,6 +155,7 @@ export default function VariantSelector({
   const router = useRouter();
   const { toast } = useToast();
   const [isBuying, startBuying] = useTransition();
+  const [isAdding, startAdding] = useTransition();
 
   useEffect(() => {
     if (onColorSelected && selectedColor) {
@@ -298,7 +297,33 @@ export default function VariantSelector({
 
       {shouldShowButton ? (
         <div className='flex flex-col gap-2'>
-          <AddToCart cart={cart} item={item} />
+          <Button
+            type='button'
+            variant='outline'
+            className='w-full'
+            disabled={isAdding}
+            onClick={() => {
+              if (!hasRequiredSelections()) {
+                toast({
+                  variant: 'destructive',
+                  description: 'Please select the required options first.',
+                });
+                return;
+              }
+
+              startAdding(async () => {
+                const res = await addItemToCart(item);
+                toast({
+                  variant: res.success ? 'default' : 'destructive',
+                  description: res.success
+                    ? `Added ${quantity} to your cart.`
+                    : res.message,
+                });
+              });
+            }}
+          >
+            {isAdding ? <Loader className='w-4 h-4 animate-spin' /> : 'Add to Cart'}
+          </Button>
           <Button
             type='button'
             className='w-full'

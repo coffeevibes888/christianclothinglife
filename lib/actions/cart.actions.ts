@@ -266,18 +266,20 @@ export async function addItemToCart(data: CartItem) {
         (x) => x.productId === item.productId && x.variantId === item.variantId
       );
 
+      const addQty = item.qty && item.qty > 0 ? item.qty : 1;
+
       if (existItem) {
         const available = variant ? variant.stock : product.stock;
-        if (available < existItem.qty + 1) {
+        if (available < existItem.qty + addQty) {
           throw new Error('Not enough stock');
         }
 
         (cart.items as CartItem[]).find(
           (x) => x.productId === item.productId && x.variantId === item.variantId
-        )!.qty = existItem.qty + 1;
+        )!.qty = existItem.qty + addQty;
       } else {
         const available = variant ? variant.stock : product.stock;
-        if (available < 1) throw new Error('Not enough stock');
+        if (available < addQty) throw new Error('Not enough stock');
 
         cart.items.push(item);
       }
