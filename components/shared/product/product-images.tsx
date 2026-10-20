@@ -39,13 +39,13 @@ const ProductImages = ({
 
   return (
     <div className='space-y-4'>
-      <div className='relative'>
+      <div className='relative bg-transparent'>
         <Image
           src={activeImage || images[current]}
           alt={mainAlt}
           width={1000}
           height={1000}
-          className='min-h-[300px] object-cover object-center'
+          className='h-auto max-h-[520px] w-full bg-transparent object-contain object-center'
         />
         {colorName && (
           <div className='absolute top-4 left-4 bg-black/70 text-white px-4 py-2 rounded-md backdrop-blur-sm'>
@@ -66,7 +66,7 @@ const ProductImages = ({
             onClick={() => handleThumbnailChange(image, index)}
             aria-label={`View image ${index + 1}`}
             className={cn(
-              'flex-shrink-0 overflow-hidden rounded-md border transition-colors',
+              'flex-shrink-0 overflow-hidden rounded-md border bg-transparent transition-colors',
               current === index
                 ? 'border-slate-900 ring-1 ring-slate-900'
                 : 'border-slate-200 hover:border-slate-500'
@@ -77,7 +77,7 @@ const ProductImages = ({
               alt={`${baseAlt} thumbnail ${index + 1}`}
               width={80}
               height={80}
-              className='h-20 w-20 object-cover'
+              className='h-20 w-20 bg-transparent object-contain'
             />
           </button>
         ))}
