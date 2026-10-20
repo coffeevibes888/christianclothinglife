@@ -8,14 +8,90 @@ function getPrintfulHeaders() {
     throw new Error('PRINTFUL_SECRET_KEY is not set in environment variables');
   }
 
-  return {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
-  } as const;
+  };
+
+  // Account-level tokens must specify which store to act on. Store-level tokens
+  // ignore this header, so it is always safe to send when configured.
+  if (process.env.PRINTFUL_STORE_ID) {
+    headers['X-PF-Store-Id'] = String(process.env.PRINTFUL_STORE_ID);
+  }
+
+  return headers;
 }
 
-// Fetch list of products from Printful Sync API
-export async function fetchPrintfulStoreProducts() {
+/* ------------------------------------------------------------------ */
+/* Response shapes (Printful v1 Sync API)                              */
+/* ------------------------------------------------------------------ */
+
+export type PrintfulSyncProductSummary = {
+  id: number;
+  external_id: string;
+  name: string;
+  variants: number;
+  synced: number;
+  thumbnail_url?: string;
+};
+
+export type PrintfulSyncVariant = {
+  id: number;
+  external_id: string;
+  sync_product_id: number;
+  name: string;
+  synced: boolean;
+  variant_id: number; // catalog variant id
+  retail_price: string;
+  sku: string;
+  currency?: string;
+  product?: { variant_id: number; product_id: number; image?: string; name?: string };
+  files?: { type: string; preview_url?: string; thumbnail_url?: string }[];
+};
+
+export type PrintfulSyncProductDetail = {
+  sync_product: {
+    id: number;
+    external_id: string;
+    name: string;
+    thumbnail_url?: string;
+  };
+  sync_variants: PrintfulSyncVariant[];
+};
+
+export type PrintfulCatalogVariant = {
+  id: number;
+  product_id: number;
+  name: string;
+  size?: string;
+  color?: string;
+  color_code?: string;
+  image?: string;
+};
+
+export type PrintfulOrderItemInput = {
+  sync_variant_id: number;
+  quantity: number;
+};
+
+export type PrintfulRecipient = {
+  name: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state_code?: string;
+  country_code: string;
+  zip: string;
+  email?: string;
+  phone?: string;
+};
+
+/* ------------------------------------------------------------------ */
+/* API calls                                                           */
+/* ------------------------------------------------------------------ */
+
+// Fetch list of products from the Printful Sync API.
+export async function fetchPrintfulStoreProducts(): Promise<PrintfulSyncProductSummary[]> {
   const res = await fetch(`${PRINTFUL_BASE_URL}/sync/products`, {
     method: 'GET',
     headers: getPrintfulHeaders(),
@@ -26,12 +102,14 @@ export async function fetchPrintfulStoreProducts() {
     throw new Error(`Failed to fetch Printful products: ${res.status} ${res.statusText}`);
   }
 
-  const data = (await res.json()) as { result?: unknown[] };
+  const data = (await res.json()) as { result?: PrintfulSyncProductSummary[] };
   return data.result ?? [];
 }
 
-// Fetch detailed product (including variants) from Printful Sync API
-export async function fetchPrintfulStoreProduct(id: number | string) {
+// Fetch a detailed product (including variants) from the Printful Sync API.
+export async function fetchPrintfulStoreProduct(
+  id: number | string
+): Promise<PrintfulSyncProductDetail> {
   const res = await fetch(`${PRINTFUL_BASE_URL}/sync/products/${id}`, {
     method: 'GET',
     headers: getPrintfulHeaders(),
@@ -44,6 +122,62 @@ export async function fetchPrintfulStoreProduct(id: number | string) {
     );
   }
 
-  const data = (await res.json()) as { result?: unknown };
+  const data = (await res.json()) as { result?: PrintfulSyncProductDetail };
+  if (!data.result) throw new Error(`Printful product ${id} returned no result`);
+  return data.result;
+}
+
+// Fetch a catalog variant to resolve reliable color/size labels.
+export async function fetchPrintfulCatalogVariant(
+  variantId: number
+): Promise<PrintfulCatalogVariant | null> {
+  const res = await fetch(`${PRINTFUL_BASE_URL}/products/variant/${variantId}`, {
+    method: 'GET',
+    headers: getPrintfulHeaders(),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as { result?: { variant?: PrintfulCatalogVariant } };
+  return data.result?.variant ?? null;
+}
+
+// Create a fulfillment order in Printful. Pass confirm=true to submit it for
+// fulfillment immediately; confirm=false leaves it as an editable draft.
+export async function createPrintfulOrder(params: {
+  externalId: string;
+  recipient: PrintfulRecipient;
+  items: PrintfulOrderItemInput[];
+  confirm?: boolean;
+}): Promise<{ id: number; status: string }> {
+  const { externalId, recipient, items, confirm = true } = params;
+
+  const res = await fetch(
+    `${PRINTFUL_BASE_URL}/orders${confirm ? '?confirm=1' : ''}`,
+    {
+      method: 'POST',
+      headers: getPrintfulHeaders(),
+      cache: 'no-store',
+      body: JSON.stringify({
+        external_id: externalId,
+        recipient,
+        items,
+      }),
+    }
+  );
+
+  const data = (await res.json()) as {
+    result?: { id: number; status: string };
+    error?: { message?: string };
+    code?: number;
+  };
+
+  if (!res.ok || !data.result) {
+    throw new Error(
+      `Failed to create Printful order: ${data.error?.message || `${res.status} ${res.statusText}`}`,
+    );
+  }
+
   return data.result;
 }

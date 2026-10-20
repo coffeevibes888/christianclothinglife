@@ -4,7 +4,7 @@ import { prisma } from '@/db/prisma';
 import { formatError } from '../utils';
 import { sendVerificationEmail, sendPasswordResetEmail } from '@/email';
 import { hash } from '../encrypt';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 
 const generateToken = () => randomBytes(32).toString('hex');
 
@@ -21,7 +21,11 @@ export async function sendVerificationEmailToken(email: string) {
     });
 
     if (!user) {
-      return { success: false, message: 'User not found' };
+      // Don't disclose whether the email is registered.
+      return {
+        success: true,
+        message: 'If an account exists for that email, a verification link has been sent.',
+      };
     }
 
     const token = generateToken();
@@ -92,14 +96,33 @@ export async function verifyEmail(token: string) {
 }
 
 export async function requestPasswordReset(email: string) {
+  // Always return the same message so this endpoint can't be used to discover
+  // which emails are registered.
+  const genericSuccess = {
+    success: true,
+    message: 'If an account exists for that email, a password reset link has been sent.',
+  };
+
   try {
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
-      return { success: false, message: 'User not found' };
+      return genericSuccess;
     }
+
+    // Throttle: at most 3 reset requests per 15 minutes per email.
+    const windowStart = new Date(Date.now() - 15 * 60 * 1000);
+    const recentCount = await prisma.passwordResetToken.count({
+      where: { email, createdAt: { gte: windowStart } },
+    });
+    if (recentCount >= 3) {
+      return genericSuccess;
+    }
+
+    // Invalidate any outstanding reset tokens before issuing a new one.
+    await prisma.passwordResetToken.deleteMany({ where: { email } });
 
     const token = generateToken();
     const expires = new Date(Date.now() + 60 * 60 * 1000);
@@ -121,18 +144,12 @@ export async function requestPasswordReset(email: string) {
       });
     } catch (error) {
       console.error('Failed to send password reset email:', error);
-      return {
-        success: false,
-        message: `Failed to send password reset email: ${formatError(error)}`,
-      };
     }
 
-    return {
-      success: true,
-      message: 'Password reset email sent successfully',
-    };
+    return genericSuccess;
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    console.error('requestPasswordReset error:', error);
+    return genericSuccess;
   }
 }
 
@@ -170,9 +187,8 @@ export async function resetPassword(token: string, newPassword: string) {
   }
 }
 
-const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
+// Cryptographically secure 6-digit OTP (avoids the predictability of Math.random).
+const generateOtp = () => randomInt(0, 1_000_000).toString().padStart(6, '0');
 
 export async function sendPhoneOtp(userId: string, phoneNumber: string) {
   try {
@@ -182,6 +198,18 @@ export async function sendPhoneOtp(userId: string, phoneNumber: string) {
 
     if (!user) {
       return { success: false, message: 'User not found' };
+    }
+
+    // Throttle OTP resends: at most 5 codes per 15 minutes per user.
+    const windowStart = new Date(Date.now() - 15 * 60 * 1000);
+    const recentCount = await prisma.phoneVerificationToken.count({
+      where: { userId, createdAt: { gte: windowStart } },
+    });
+    if (recentCount >= 5) {
+      return {
+        success: false,
+        message: 'Too many codes requested. Please wait a few minutes and try again.',
+      };
     }
 
     const otp = generateOtp();
@@ -257,12 +285,15 @@ export async function sendPhoneOtp(userId: string, phoneNumber: string) {
 
 export async function verifyPhoneOtp(userId: string, otp: string) {
   try {
+    // Look up the latest code for this user (NOT by otp value) so an incorrect
+    // guess still counts against the attempt cap instead of silently missing.
     const verificationToken = await prisma.phoneVerificationToken.findFirst({
-      where: { userId, otp },
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!verificationToken) {
-      return { success: false, message: 'Invalid verification code' };
+      return { success: false, message: 'No verification code found. Please request a new one.' };
     }
 
     if (verificationToken.expires < new Date()) {
@@ -272,7 +303,7 @@ export async function verifyPhoneOtp(userId: string, otp: string) {
       return { success: false, message: 'Verification code has expired' };
     }
 
-    if (verificationToken.attempts >= 3) {
+    if (verificationToken.attempts >= 5) {
       await prisma.phoneVerificationToken.delete({
         where: { id: verificationToken.id },
       });
@@ -280,6 +311,14 @@ export async function verifyPhoneOtp(userId: string, otp: string) {
         success: false,
         message: 'Too many failed attempts. Please request a new code.',
       };
+    }
+
+    if (verificationToken.otp !== otp) {
+      await prisma.phoneVerificationToken.update({
+        where: { id: verificationToken.id },
+        data: { attempts: { increment: 1 } },
+      });
+      return { success: false, message: 'Invalid verification code' };
     }
 
     await prisma.user.update({

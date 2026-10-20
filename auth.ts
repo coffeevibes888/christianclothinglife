@@ -3,7 +3,7 @@ import { authConfig } from './auth.config';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from '@/db/prisma';
 import { cookies } from 'next/headers';
-import { compare } from './lib/encrypt';
+import { compare, hash, needsRehash } from './lib/encrypt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { extractGeo } from '@/lib/tracking/geo';
 import { logSecurityEvent } from '@/lib/security/security-logger';
@@ -33,6 +33,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const geo = headers ? extractGeo(headers) : { ip: null, country: null };
         const userAgent = headers?.get('user-agent') ?? null;
 
+        // Brute-force throttle: block after too many recent failed logins for
+        // this email. Backed by the security-event log, so it works across
+        // serverless instances.
+        try {
+          const windowStart = new Date(Date.now() - 15 * 60 * 1000);
+          const recentFailures = await prisma.securityEvent.count({
+            where: {
+              eventType: 'failed_login',
+              email,
+              createdAt: { gte: windowStart },
+            },
+          });
+          if (recentFailures >= 8) {
+            await logSecurityEvent({
+              eventType: 'rate_limited',
+              ip: geo.ip,
+              email,
+              userAgent,
+              country: geo.country,
+              details: { reason: 'too_many_failed_logins' },
+            });
+            return null;
+          }
+        } catch (err) {
+          // Fail open on logging/DB errors so legitimate users aren't locked out.
+          console.error('Login throttle check failed:', err);
+        }
+
         // Find user in database
         const user = await prisma.user.findFirst({
           where: {
@@ -49,6 +77,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // If password is correct, return user
           if (isMatch) {
+            // Transparently upgrade legacy (HMAC) password hashes to bcrypt.
+            if (needsRehash(user.password)) {
+              try {
+                const upgraded = await hash(credentials.password as string);
+                await prisma.user.update({
+                  where: { id: user.id },
+                  data: { password: upgraded },
+                });
+              } catch (err) {
+                console.error('Password rehash failed:', err);
+              }
+            }
+
             await logSecurityEvent({
               eventType: 'login_success',
               ip: geo.ip,

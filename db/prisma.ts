@@ -7,12 +7,21 @@ import { POOLED_DATABASE_URL } from './connection';
 // Resolution + SSL normalization lives in ./connection so it works on both
 // local (.env) and Vercel (POSTGRES_PRISMA_URL) without changes.
 const connectionString = POOLED_DATABASE_URL as string;
-const adapter = new PrismaPg({ connectionString });
 
-const prismaBase = new PrismaClient({ adapter });
+// Cache the client on globalThis so Next.js dev hot-reloads reuse a single
+// PrismaClient / connection pool instead of opening a new pool on every
+// module re-evaluation (which exhausts the Supabase pooled endpoint and
+// surfaces as "Server has closed the connection").
+const globalForPrisma = globalThis as unknown as {
+  prisma?: ReturnType<typeof createExtendedPrismaClient>;
+};
 
-export const prisma = prismaBase
-  .$extends({
+function createExtendedPrismaClient() {
+  const adapter = new PrismaPg({ connectionString });
+  const prismaBase = new PrismaClient({ adapter });
+
+  return prismaBase
+    .$extends({
     query: {
       message: {
         async create({ args, query }) {
@@ -178,3 +187,10 @@ export const prisma = prismaBase
       },
     },
   });
+}
+
+export const prisma = globalForPrisma.prisma ?? createExtendedPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}

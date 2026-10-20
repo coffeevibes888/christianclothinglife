@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getMyCart } from "@/lib/actions/cart.actions";
 import { formatError } from "@/lib/utils";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const limit = rateLimit(`payment-intent:${getClientIp(req.headers)}`, 15, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { success: false, message: "Too many requests. Please wait a moment." },
+        { status: 429 },
+      );
+    }
+
     const body = await req.json();
     const { guestDetails } = body as {
       guestDetails?: {
@@ -13,6 +22,7 @@ export async function POST(req: NextRequest) {
         phone?: string;
         streetAddress?: string;
         city?: string;
+        state?: string;
         postalCode?: string;
         country?: string;
       };
@@ -47,6 +57,7 @@ export async function POST(req: NextRequest) {
         guestAddress: JSON.stringify({
           streetAddress: guestDetails.streetAddress || "",
           city: guestDetails.city || "",
+          state: guestDetails.state || "",
           postalCode: guestDetails.postalCode || "",
           country: guestDetails.country || "",
         }),

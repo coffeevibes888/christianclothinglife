@@ -94,7 +94,7 @@ export default function NewOrderAlertEmail({ order }: NewOrderAlertProps) {
                 <Text className='m-0'>{addr.fullName}</Text>
                 <Text className='m-0'>{addr.streetAddress}</Text>
                 <Text className='m-0'>
-                  {addr.city}, {addr.postalCode}
+                  {addr.city}{addr.state ? `, ${addr.state}` : ''} {addr.postalCode}
                 </Text>
                 <Text className='m-0'>{addr.country}</Text>
               </Section>

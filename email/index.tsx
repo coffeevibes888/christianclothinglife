@@ -90,6 +90,37 @@ export const sendNewOrderAlert = async ({
   }
 };
 
+export const sendOrderDeliveredEmail = async ({
+  order,
+}: {
+  order: { id: string; user: { name?: string | null; email: string } };
+}) => {
+  if (!order.user?.email) return;
+
+  try {
+    const html = `
+      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
+        <h2 style="margin:0 0 12px">Your order was delivered 🎉</h2>
+        <p style="margin:0 0 8px">Hi ${order.user.name || 'there'},</p>
+        <p style="margin:0 0 8px">Your ${APP_NAME} order <strong>${order.id}</strong> has been marked as delivered.</p>
+        <p style="margin:0 0 8px">We hope you love it. If anything isn't right, just reply to this email.</p>
+        <p style="margin:16px 0 0">Thanks for supporting ${APP_NAME}.</p>
+      </div>`;
+    const body = await encryptIfNeeded(html);
+
+    const info = await transporter.sendMail({
+      from: `${APP_NAME} <${SENDER_EMAIL}>`,
+      to: order.user.email,
+      subject: `Your order ${order.id} was delivered`,
+      html: body,
+    });
+
+    console.log('✓ Order Delivered Email Sent:', info.messageId);
+  } catch (err) {
+    console.error('❌ Error sending order delivered email:', err);
+  }
+};
+
 export const sendVerificationEmail = async ({
   email,
   verificationLink,

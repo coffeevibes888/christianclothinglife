@@ -11,6 +11,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Sending email through the store's SMTP is an admin-only capability to
+    // prevent the endpoint being abused as an open relay / phishing vector.
+    const role = session.user.role;
+    if (role !== 'admin' && role !== 'superAdmin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const formData = await req.formData();
     const to = formData.get('to');
     const subject = formData.get('subject');

@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useTransition } from 'react';
 import { addItemToCart, removeItemFromCart } from '@/lib/actions/cart.actions';
-import { ArrowRight, Loader, Minus, Plus } from 'lucide-react';
+import { ArrowRight, Loader, Minus, Pencil, Plus } from 'lucide-react';
 import { Cart, CartItem } from '@/types';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -138,8 +138,9 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
                       </div>
                       <Link
                         href={`/product/${item.slug}`}
-                        className='text-xs text-blue-600 hover:underline'
+                        className='inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-900 hover:text-slate-900'
                       >
+                        <Pencil className='h-3 w-3' />
                         Edit color / size
                       </Link>
                     </TableCell>

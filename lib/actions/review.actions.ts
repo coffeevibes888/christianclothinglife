@@ -28,6 +28,18 @@ export async function createUpdateReview(
 
     if (!product) throw new Error('Product not found');
 
+    // Derive the "verified purchase" badge from a real paid order containing
+    // this product — never trust it as an unconditional default.
+    const purchased = await prisma.order.findFirst({
+      where: {
+        userId: review.userId,
+        isPaid: true,
+        orderitems: { some: { productId: review.productId } },
+      },
+      select: { id: true },
+    });
+    const isVerifiedPurchase = Boolean(purchased);
+
     // Check if user already reviewed
     const reviewExists = await prisma.review.findFirst({
       where: {
@@ -45,11 +57,12 @@ export async function createUpdateReview(
             title: review.title,
             description: review.description,
             rating: review.rating,
+            isVerifiedPurchase,
           },
         });
       } else {
         // Create review
-        await tx.review.create({ data: review });
+        await tx.review.create({ data: { ...review, isVerifiedPurchase } });
       }
 
       // Get avg rating

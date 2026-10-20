@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader } from 'lucide-react';
 import { updateUserAddress } from '@/lib/actions/user.actions';
-import { shippingAddressDefaultValues } from '@/lib/constants';
+import { shippingAddressDefaultValues, US_STATES } from '@/lib/constants';
 
 const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
   const router = useRouter();
@@ -124,6 +124,36 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                     <FormLabel>City</FormLabel>
                     <FormControl>
                       <Input placeholder='Enter city' {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='state'
+                render={({
+                  field,
+                }: {
+                  field: ControllerRenderProps<
+                    z.infer<typeof shippingAddressSchema>,
+                    'state'
+                  >;
+                }) => (
+                  <FormItem className='w-full'>
+                    <FormLabel>State</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className='flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+                      >
+                        <option value=''>Select state</option>
+                        {US_STATES.map((s) => (
+                          <option key={s.code} value={s.code}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

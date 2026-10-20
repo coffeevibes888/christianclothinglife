@@ -9,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatId } from '@/lib/utils';
+import { formatCurrency, formatDateTime, formatId } from '@/lib/utils';
 import { Order } from '@/types';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -53,8 +53,30 @@ const OrderDetailsTable = ({
     totalPrice,
     paymentMethod,
     isDelivered,
+    deliveredAt,
     isPaid,
+    paidAt,
+    createdAt,
   } = order;
+
+  // Tracking fields aren't on the base Order type but exist at runtime.
+  const tracking = order as unknown as {
+    trackingNumber?: string | null;
+    trackingStatus?: string | null;
+  };
+  const trackingStatusText = (tracking.trackingStatus || '').toLowerCase();
+  const isShipped =
+    isDelivered ||
+    ['shipped', 'in transit', 'in_transit', 'out for delivery', 'out_for_delivery', 'accepted'].some(
+      (s) => trackingStatusText.includes(s)
+    );
+
+  const statusSteps = [
+    { label: 'Placed', done: true, at: createdAt as Date | string | null },
+    { label: 'Paid', done: isPaid, at: paidAt as Date | string | null },
+    { label: 'Shipped', done: isShipped, at: null as Date | string | null },
+    { label: 'Delivered', done: isDelivered, at: deliveredAt as Date | string | null },
+  ];
 
   const [editAddress, setEditAddress] = useState<ShippingAddress>(shippingAddress);
   const [isSavingAddress, startSaveAddress] = useTransition();
@@ -151,11 +173,71 @@ const OrderDetailsTable = ({
       <div className='grid md:grid-cols-3 md:gap-5'>
         <div className='col-span-2 space-4-y overlow-x-auto'>
           <Card className='my-2'>
+            <CardContent className='p-4'>
+              <h2 className='text-xl pb-4'>Order Status</h2>
+              <div className='flex items-center justify-between'>
+                {statusSteps.map((step, index) => (
+                  <div key={step.label} className='flex flex-1 items-center last:flex-none'>
+                    <div className='flex flex-col items-center'>
+                      <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold ${
+                          step.done
+                            ? 'border-emerald-500 bg-emerald-500 text-white'
+                            : 'border-slate-300 bg-white text-slate-400'
+                        }`}
+                      >
+                        {step.done ? '✓' : index + 1}
+                      </div>
+                      <span
+                        className={`mt-1 text-xs font-medium ${
+                          step.done ? 'text-slate-900' : 'text-slate-400'
+                        }`}
+                      >
+                        {step.label}
+                      </span>
+                      {step.at && (
+                        <span className='text-[10px] text-slate-400'>
+                          {formatDateTime(new Date(step.at)).dateOnly}
+                        </span>
+                      )}
+                    </div>
+                    {index < statusSteps.length - 1 && (
+                      <div
+                        className={`mx-1 h-0.5 flex-1 ${
+                          statusSteps[index + 1].done ? 'bg-emerald-500' : 'bg-slate-200'
+                        }`}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {tracking.trackingNumber && (
+                <div className='mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm'>
+                  <div className='flex flex-wrap items-center justify-between gap-2'>
+                    <div>
+                      <p className='text-xs text-slate-500'>Tracking number</p>
+                      <p className='font-mono font-medium text-slate-900'>
+                        {tracking.trackingNumber}
+                      </p>
+                    </div>
+                    {tracking.trackingStatus && (
+                      <span className='rounded-full bg-slate-900 px-3 py-1 text-xs font-medium capitalize text-white'>
+                        {tracking.trackingStatus}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card className='my-2'>
             <CardContent className='p-4 gap-4'>
               <h2 className='text-xl pb-4'>Shipping Address</h2>
               <p>{shippingAddress.fullName}</p>
               <p className='mb-2'>
                 {shippingAddress.streetAddress}, {shippingAddress.city}
+                {shippingAddress.state ? `, ${shippingAddress.state}` : ''}{' '}
                 {shippingAddress.postalCode}, {shippingAddress.country}
               </p>
 

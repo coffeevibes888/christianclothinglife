@@ -1,8 +1,15 @@
+import bcrypt from 'bcryptjs';
+
 const encoder = new TextEncoder();
 const baseKey = process.env.ENCRYPTION_KEY || '';
 const hmacKeyBytes = new TextEncoder().encode(baseKey);
 
-export const hash = async (plainPassword: string): Promise<string> => {
+const BCRYPT_ROUNDS = 12;
+
+// Legacy (pre-bcrypt) unsalted HMAC hashing. Kept ONLY so existing passwords
+// still verify until the user next signs in and is transparently upgraded to
+// bcrypt (see `needsRehash` + the rehash step in auth.ts).
+const legacyHmacHash = async (plainPassword: string): Promise<string> => {
   const passwordData = encoder.encode(plainPassword);
 
   const cryptoKey = await crypto.subtle.importKey(
@@ -19,13 +26,37 @@ export const hash = async (plainPassword: string): Promise<string> => {
     .join('');
 };
 
+const isBcryptHash = (value: string) => /^\$2[aby]\$/.test(value);
+
+// Hash a new password with bcrypt (per-password salt, slow by design).
+export const hash = async (plainPassword: string): Promise<string> => {
+  return bcrypt.hash(plainPassword, BCRYPT_ROUNDS);
+};
+
+// Verify a password against a bcrypt hash (current) or the legacy HMAC hash.
 export const compare = async (
   plainPassword: string,
-  encryptedPassword: string
+  storedHash: string
 ): Promise<boolean> => {
-  const hashedPassword = await hash(plainPassword);
-  return hashedPassword === encryptedPassword;
+  if (!storedHash) return false;
+
+  if (isBcryptHash(storedHash)) {
+    return bcrypt.compare(plainPassword, storedHash);
+  }
+
+  // Legacy path: constant-time comparison of the old HMAC digest.
+  const legacy = await legacyHmacHash(plainPassword);
+  if (legacy.length !== storedHash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < legacy.length; i++) {
+    diff |= legacy.charCodeAt(i) ^ storedHash.charCodeAt(i);
+  }
+  return diff === 0;
 };
+
+// True when a stored hash is still in the legacy format and should be upgraded
+// to bcrypt the next time we have the plaintext (i.e. on successful login).
+export const needsRehash = (storedHash: string): boolean => !isBcryptHash(storedHash);
 const aesKeyLength = 32;
 
 const getAesKeyBytes = () => {

@@ -19,22 +19,19 @@ export async function GET(req: NextRequest) {
 
     const currentUserId = session.user.id as string;
 
+    // Search by name only and never return other users' email/phone — this
+    // endpoint previously allowed enumerating PII for every account.
     const users = await prisma.user.findMany({
       where: {
         id: { not: currentUserId },
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
-          { phoneNumber: { contains: q, mode: 'insensitive' } },
-        ],
+        name: { contains: q, mode: 'insensitive' },
       },
       orderBy: { name: 'asc' },
       take: 10,
       select: {
         id: true,
         name: true,
-        email: true,
-        phoneNumber: true,
+        image: true,
       },
     });
 

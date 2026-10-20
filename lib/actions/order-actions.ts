@@ -13,6 +13,8 @@ import { Prisma } from '@prisma/client';
 import { sendPurchaseReceipt } from '@/email';
 import { notifyOwnerOfOrder } from '@/lib/notifications/order-notify';
 import { logCartEvent } from './tracking-events.actions';
+import { fulfillOrderWithPrintful } from './printful-fulfillment';
+import { requireAdminAction } from '@/lib/auth-guard';
 
 // ---------- Type Guard Helpers ---------- //
 function isShippingAddress(data: unknown): data is ShippingAddress {
@@ -86,9 +88,24 @@ export async function createOrder() {
         });
       }
 
+      // Count the promo redemption so maxUses is enforced over time.
+      if (cart.appliedPromoCodeId) {
+        await tx.promoCode.update({
+          where: { id: cart.appliedPromoCodeId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+
       await tx.cart.update({
         where: { id: cart.id },
-        data: { items: [], totalPrice: 0, taxPrice: 0, shippingPrice: 0, itemsPrice: 0 },
+        data: {
+          items: [],
+          totalPrice: 0,
+          taxPrice: 0,
+          shippingPrice: 0,
+          itemsPrice: 0,
+          appliedPromoCodeId: null,
+        },
       });
 
       return insertedOrder.id;
@@ -108,14 +125,23 @@ export async function createOrder() {
   }
 }
 
-// Get single order
+// Get single order — only the owner or an admin may read it. Returns null for
+// anyone else so order existence (and PII) is never disclosed.
 export async function getOrderById(orderId: string) {
+  const session = await auth();
+  const requesterId = session?.user?.id;
+  const isAdmin =
+    session?.user?.role === 'admin' || session?.user?.role === 'superAdmin';
+
+  if (!requesterId) return null;
+
   const data = await prisma.order.findFirst({
     where: { id: orderId },
     include: { orderitems: true, user: { select: { name: true, email: true } } },
   });
 
   if (!data) return null;
+  if (data.userId !== requesterId && !isAdmin) return null;
 
   const convertedData = {
     ...data,
@@ -320,6 +346,12 @@ export async function updateOrderToPaid({
   } else {
     console.error('Invalid address or payment result:', updatedOrder);
   }
+
+  // Push to Printful for print-on-demand fulfillment when enabled. Non-blocking:
+  // a Printful failure must never break the paid-order flow.
+  fulfillOrderWithPrintful(orderId).catch((error) => {
+    console.error('Printful fulfillment error:', error);
+  });
 }
 
 // Get user's orders
@@ -349,6 +381,8 @@ export async function getMyOrders({ limit = PAGE_SIZE, page }: { limit?: number;
 
 // Order summary
 export async function getOrderSummary() {
+  await requireAdminAction();
+
   const ordersCount = await prisma.order.count();
   const productsCount = await prisma.product.count();
   const usersCount = await prisma.user.count();
@@ -387,6 +421,8 @@ export async function getAllOrders({
   page: number;
   query: string;
 }) {
+  await requireAdminAction();
+
   const queryFilter: Prisma.OrderWhereInput =
     query && query !== 'all'
       ? {
@@ -412,6 +448,8 @@ export async function getAllOrders({
 // Delete an order
 export async function deleteOrder(id: string) {
   try {
+    await requireAdminAction();
+
     await prisma.order.delete({ where: { id } });
     revalidatePath('/admin/orders');
     return { success: true, message: 'Order deleted successfully' };
@@ -420,9 +458,11 @@ export async function deleteOrder(id: string) {
   }
 }
 
-// Mark COD order as paid
+// Mark COD order as paid (admin only).
 export async function updateOrderToPaidCOD(orderId: string) {
   try {
+    await requireAdminAction();
+
     await updateOrderToPaid({ orderId });
     revalidatePath(`/order/${orderId}`);
     return { success: true, message: 'COD order marked as paid' };
@@ -431,10 +471,15 @@ export async function updateOrderToPaidCOD(orderId: string) {
   }
 }
 
-// Mark order as delivered
+// Mark order as delivered (admin only).
 export async function deliverOrder(orderId: string) {
   try {
-    const order = await prisma.order.findFirst({ where: { id: orderId } });
+    await requireAdminAction();
+
+    const order = await prisma.order.findFirst({
+      where: { id: orderId },
+      include: { user: { select: { name: true, email: true } } },
+    });
     if (!order) throw new Error('Order not found');
     if (!order.isPaid) throw new Error('Order not paid');
 
@@ -442,6 +487,14 @@ export async function deliverOrder(orderId: string) {
       where: { id: orderId },
       data: { isDelivered: true, deliveredAt: new Date() },
     });
+
+    // Notify the customer their order was delivered (non-blocking).
+    if (order.user?.email) {
+      const { sendOrderDeliveredEmail } = await import('@/email');
+      sendOrderDeliveredEmail({
+        order: { id: orderId, user: { name: order.user.name, email: order.user.email } },
+      }).catch((err) => console.error('Delivered email error:', err));
+    }
 
     revalidatePath(`/order/${orderId}`);
 
@@ -455,51 +508,75 @@ export async function getRevenueByPeriod(
   period: 'day' | 'month' | 'year',
   filterDate?: { year?: number; month?: number }
 ) {
-  const queryMap = {
-    day: `SELECT to_char("createdAt", 'YYYY-MM-DD') as "date", 
+  await requireAdminAction();
+
+  // Coerce filters to safe integers; anything else is ignored. Combined with
+  // parameterized queries below, this eliminates SQL-injection risk.
+  const year =
+    filterDate?.year != null && Number.isFinite(Number(filterDate.year))
+      ? Math.trunc(Number(filterDate.year))
+      : undefined;
+  const month =
+    filterDate?.month != null && Number.isFinite(Number(filterDate.month))
+      ? Math.trunc(Number(filterDate.month))
+      : undefined;
+
+  type Row = {
+    date: string;
+    displayDate: string;
+    totalRevenue: Prisma.Decimal;
+    orderCount: bigint | number;
+  };
+
+  let rawData: Row[];
+
+  if (period === 'day') {
+    const yearCond = year
+      ? Prisma.sql`AND EXTRACT(YEAR FROM "createdAt") = ${year}`
+      : Prisma.empty;
+    const monthCond =
+      year && month
+        ? Prisma.sql`AND EXTRACT(MONTH FROM "createdAt") = ${month}`
+        : Prisma.empty;
+    rawData = await prisma.$queryRaw<Row[]>`
+      SELECT to_char("createdAt", 'YYYY-MM-DD') as "date",
              to_char("createdAt", 'DD Mon YYYY') as "displayDate",
              sum("totalPrice") as "totalRevenue",
              count(*) as "orderCount"
-          FROM "Order"
-          WHERE "isPaid" = true
-          ${filterDate?.year && filterDate?.month ? `AND EXTRACT(YEAR FROM "createdAt") = ${filterDate.year} AND EXTRACT(MONTH FROM "createdAt") = ${filterDate.month}` : filterDate?.year ? `AND EXTRACT(YEAR FROM "createdAt") = ${filterDate.year}` : ''}
-          GROUP BY to_char("createdAt", 'YYYY-MM-DD'), to_char("createdAt", 'DD Mon YYYY')
-          ORDER BY "date" DESC`,
-
-    month: `SELECT to_char("createdAt", 'YYYY-MM') as "date",
-               to_char("createdAt", 'Mon YYYY') as "displayDate",
-               sum("totalPrice") as "totalRevenue",
-               count(*) as "orderCount"
-            FROM "Order"
-            WHERE "isPaid" = true
-            ${filterDate?.year ? `AND EXTRACT(YEAR FROM "createdAt") = ${filterDate.year}` : ''}
-            GROUP BY to_char("createdAt", 'YYYY-MM'), to_char("createdAt", 'Mon YYYY')
-            ORDER BY "date" DESC`,
-
-    year: `SELECT to_char("createdAt", 'YYYY') as "date",
-              to_char("createdAt", 'YYYY') as "displayDate",
-              sum("totalPrice") as "totalRevenue",
-              count(*) as "orderCount"
-           FROM "Order"
-           WHERE "isPaid" = true
-           GROUP BY to_char("createdAt", 'YYYY')
-           ORDER BY "date" DESC`,
-  };
-
-  const rawData = await prisma.$queryRawUnsafe<
-    Array<{
-      date: string;
-      displayDate: string;
-      totalRevenue: Prisma.Decimal;
-      orderCount: number;
-    }>
-  >(queryMap[period]);
+      FROM "Order"
+      WHERE "isPaid" = true ${yearCond} ${monthCond}
+      GROUP BY to_char("createdAt", 'YYYY-MM-DD'), to_char("createdAt", 'DD Mon YYYY')
+      ORDER BY "date" DESC`;
+  } else if (period === 'month') {
+    const yearCond = year
+      ? Prisma.sql`AND EXTRACT(YEAR FROM "createdAt") = ${year}`
+      : Prisma.empty;
+    rawData = await prisma.$queryRaw<Row[]>`
+      SELECT to_char("createdAt", 'YYYY-MM') as "date",
+             to_char("createdAt", 'Mon YYYY') as "displayDate",
+             sum("totalPrice") as "totalRevenue",
+             count(*) as "orderCount"
+      FROM "Order"
+      WHERE "isPaid" = true ${yearCond}
+      GROUP BY to_char("createdAt", 'YYYY-MM'), to_char("createdAt", 'Mon YYYY')
+      ORDER BY "date" DESC`;
+  } else {
+    rawData = await prisma.$queryRaw<Row[]>`
+      SELECT to_char("createdAt", 'YYYY') as "date",
+             to_char("createdAt", 'YYYY') as "displayDate",
+             sum("totalPrice") as "totalRevenue",
+             count(*) as "orderCount"
+      FROM "Order"
+      WHERE "isPaid" = true
+      GROUP BY to_char("createdAt", 'YYYY')
+      ORDER BY "date" DESC`;
+  }
 
   const data = rawData.map((item) => ({
     date: item.date,
     displayDate: item.displayDate,
     totalRevenue: Number(item.totalRevenue),
-    orderCount: item.orderCount,
+    orderCount: Number(item.orderCount),
   }));
 
   const totalRevenue = data.reduce((sum, item) => sum + item.totalRevenue, 0);

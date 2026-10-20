@@ -3,13 +3,18 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Menu from '@/components/shared/header/menu';
 import MainNav from './main-nav';
+import { requireAdmin } from '@/lib/auth-guard';
 // import AdminSearch from '@/components/admin/admin-search';
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Defense-in-depth: gate the entire /admin subtree in one place so no page
+  // can accidentally ship without an admin check.
+  await requireAdmin();
+
   return (
     <>
       <div className='flex flex-col'>

@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
-import { Loader } from 'lucide-react';
+import { Check, Loader } from 'lucide-react';
 import AddToCart from './add-to-cart';
 import { Cart, CartItem } from '@/types';
 import ProductPrice from '@/components/shared/product/product-price';
@@ -29,6 +29,17 @@ type Product = {
   images?: string[];
   imageColors?: string[];
 };
+
+// Decide whether a hex color is light enough that a dark checkmark reads better.
+function isLightColor(hex: string): boolean {
+  const h = hex.replace('#', '').trim();
+  if (h.length !== 6) return false;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6;
+}
 
 export default function VariantSelector({
   variants,
@@ -112,16 +123,12 @@ export default function VariantSelector({
       filtered = filtered.filter((v) => v.size?.slug === selectedSize);
     }
 
-    console.log('[VariantSelector] Selected variant:', filtered[0]);
     return filtered[0];
   }, [variants, selectedColor, selectedSize, colors.length]);
 
   const variantImage = selectedVariant?.images?.[0];
   const productImage = product.images?.[0];
   const image = variantImage || productImage;
-  
-  console.log('[VariantSelector] Image to display:', image);
-  console.log('[VariantSelector] Variant images:', selectedVariant?.images);
 
   const item: CartItem = {
     productId: product.id,
@@ -154,7 +161,6 @@ export default function VariantSelector({
   useEffect(() => {
     if (onColorSelected && selectedColor) {
       const colorName = effectiveColors.find(c => c.slug === selectedColor)?.name;
-      console.log('[VariantSelector] Color changed to:', selectedColor, colorName);
       onColorSelected(selectedColor, colorName);
     } else if (onColorSelected && !selectedColor) {
       // Color was deselected
@@ -176,44 +182,99 @@ export default function VariantSelector({
     <div className='space-y-4'>
       {effectiveColors.length > 0 && (
         <div>
-          <label className='block text-sm font-medium mb-1'>Color</label>
-          <select
-            className='w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-            value={selectedColor || ''}
-            onChange={(e) => {
-              const newColor = e.target.value || undefined;
-              console.log('[VariantSelector] Color dropdown changed:', newColor);
-              setSelectedColor(newColor);
-            }}
-          >
-            <option value=''>Select color</option>
-            {effectiveColors.map((c) => (
-              <option key={c.id} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <div className='mb-2 flex items-center gap-2'>
+            <span className='text-sm font-semibold uppercase tracking-wide text-slate-900'>
+              Color
+            </span>
+            {selectedColor && (
+              <span className='text-sm text-slate-500'>
+                {effectiveColors.find((c) => c.slug === selectedColor)?.name}
+              </span>
+            )}
+          </div>
+          <div className='flex flex-wrap gap-2.5'>
+            {effectiveColors.map((c) => {
+              const hex = (c as { hex?: string | null }).hex || undefined;
+              const isActive = selectedColor === c.slug;
+
+              if (hex) {
+                return (
+                  <button
+                    key={c.id}
+                    type='button'
+                    title={c.name}
+                    aria-label={c.name}
+                    aria-pressed={isActive}
+                    onClick={() => setSelectedColor(c.slug)}
+                    className={`relative h-9 w-9 rounded-full border transition-all ${
+                      isActive
+                        ? 'border-slate-900 ring-2 ring-slate-900 ring-offset-2'
+                        : 'border-slate-300 hover:border-slate-500'
+                    }`}
+                    style={{ backgroundColor: hex }}
+                  >
+                    {isActive && (
+                      <Check
+                        className={`absolute inset-0 m-auto h-4 w-4 ${
+                          isLightColor(hex) ? 'text-slate-900' : 'text-white'
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  key={c.id}
+                  type='button'
+                  aria-pressed={isActive}
+                  onClick={() => setSelectedColor(c.slug)}
+                  className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-all ${
+                    isActive
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-300 text-slate-700 hover:border-slate-900'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
       {sizes.length > 0 && (
         <div>
-          <label className='block text-sm font-medium mb-1'>Size</label>
-          <select
-            className='w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-            value={selectedSize || ''}
-            onChange={(e) => {
-              const newSize = e.target.value || undefined;
-              console.log('[VariantSelector] Size dropdown changed:', newSize);
-              setSelectedSize(newSize);
-            }}
-          >
-            <option value=''>Select size</option>
-            {sizes.map((s) => (
-              <option key={s.id} value={s.slug}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <div className='mb-2 flex items-center gap-2'>
+            <span className='text-sm font-semibold uppercase tracking-wide text-slate-900'>
+              Size
+            </span>
+            {selectedSize && (
+              <span className='text-sm text-slate-500'>
+                {sizes.find((s) => s.slug === selectedSize)?.name}
+              </span>
+            )}
+          </div>
+          <div className='flex flex-wrap gap-2'>
+            {sizes.map((s) => {
+              const isActive = selectedSize === s.slug;
+              return (
+                <button
+                  key={s.id}
+                  type='button'
+                  aria-pressed={isActive}
+                  onClick={() => setSelectedSize(s.slug)}
+                  className={`min-w-[3rem] rounded-md border px-4 py-2 text-sm font-medium transition-all ${
+                    isActive
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                      : 'border-slate-300 text-slate-700 hover:border-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  {s.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

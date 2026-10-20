@@ -1,7 +1,13 @@
 import { Metadata } from 'next';
 import { requireAdmin } from '@/lib/auth-guard';
 import SettingsOverview from './settings-overview';
-import { getSettings, getCoupons, getPromoCodes } from '@/lib/actions/settings.actions';
+import PrintfulSettingsCard from './printful-settings-card';
+import {
+  getSettings,
+  getCoupons,
+  getPromoCodes,
+  getFulfillmentSettings,
+} from '@/lib/actions/settings.actions';
 
 export const metadata: Metadata = {
   title: 'Admin Settings',
@@ -13,6 +19,7 @@ const AdminSettingsPage = async () => {
   const settingsResult = await getSettings();
   const couponsResult = await getCoupons();
   const promoCodesResult = await getPromoCodes();
+  const fulfillmentResult = await getFulfillmentSettings();
 
   const settings = settingsResult.success ? settingsResult.data : {
     shipping: {
@@ -32,6 +39,8 @@ const AdminSettingsPage = async () => {
           <h1 className='text-4xl md:text-5xl font-bold text-white mb-2'>Settings</h1>
           <p className='text-gray-300'>Manage shipping, taxes, coupons, and promo codes</p>
         </div>
+
+        <PrintfulSettingsCard initialEnabled={fulfillmentResult.data.printfulEnabled} />
 
         <SettingsOverview
           initialSettings={settings}

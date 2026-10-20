@@ -77,6 +77,73 @@ export async function updateShippingSettings(
   }
 }
 
+// --- Fulfillment (Printful) settings -------------------------------------
+
+export async function getFulfillmentSettings() {
+  try {
+    const existing = await prisma.fulfillmentSettings.findFirst();
+    return {
+      success: true,
+      data: {
+        printfulEnabled: existing?.printfulEnabled ?? false,
+        printfulStoreId: existing?.printfulStoreId ?? null,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: formatError(error),
+      data: { printfulEnabled: false, printfulStoreId: null as string | null },
+    };
+  }
+}
+
+export async function updateFulfillmentSettings(
+  printfulEnabled: boolean,
+  printfulStoreId?: string | null
+) {
+  try {
+    const existing = await prisma.fulfillmentSettings.findFirst();
+
+    if (existing) {
+      await prisma.fulfillmentSettings.update({
+        where: { id: existing.id },
+        data: { printfulEnabled, printfulStoreId: printfulStoreId ?? null },
+      });
+    } else {
+      await prisma.fulfillmentSettings.create({
+        data: { printfulEnabled, printfulStoreId: printfulStoreId ?? null },
+      });
+    }
+
+    revalidatePath('/admin/settings');
+
+    return {
+      success: true,
+      message: printfulEnabled
+        ? 'Printful fulfillment is now ON. Paid orders will be sent to Printful automatically.'
+        : 'Printful fulfillment is now OFF. You will fulfill and ship orders yourself.',
+    };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+/**
+ * Server-side guard used by the order flow. Returns true only when the owner
+ * has switched Printful ON *and* an API key is configured. Falls back to false
+ * on any error so a misconfiguration never blocks checkout.
+ */
+export async function isPrintfulFulfillmentEnabled(): Promise<boolean> {
+  try {
+    if (!process.env.PRINTFUL_SECRET_KEY) return false;
+    const existing = await prisma.fulfillmentSettings.findFirst();
+    return Boolean(existing?.printfulEnabled);
+  } catch {
+    return false;
+  }
+}
+
 export async function updateTaxSettings(taxRate: number) {
   try {
     const existing = await prisma.taxSettings.findFirst();

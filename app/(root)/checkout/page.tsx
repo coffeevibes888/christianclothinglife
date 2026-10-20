@@ -19,7 +19,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { useTheme } from "next-themes";
-import { SERVER_URL } from "@/lib/constants";
+import { SERVER_URL, US_STATES } from "@/lib/constants";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string
@@ -34,6 +34,7 @@ type GuestDetails = {
   phone: string;
   streetAddress: string;
   city: string;
+  state: string;
   postalCode: string;
   country: string;
 };
@@ -44,8 +45,9 @@ const defaultGuestDetails: GuestDetails = {
   phone: "",
   streetAddress: "",
   city: "",
+  state: "",
   postalCode: "",
-  country: "",
+  country: "US",
 };
 
 // Payment form component that uses Stripe Elements
@@ -185,6 +187,10 @@ const CheckoutPage = () => {
 
     if (!guestDetails.city || guestDetails.city.trim().length < 2) {
       errors.city = "City is required";
+    }
+
+    if (!guestDetails.state || guestDetails.state.trim().length < 2) {
+      errors.state = "State is required";
     }
 
     if (!guestDetails.postalCode || guestDetails.postalCode.trim().length < 3) {
@@ -356,6 +362,26 @@ const CheckoutPage = () => {
                   />
                   {formErrors.city && (
                     <p className="text-xs text-destructive mt-1">{formErrors.city}</p>
+                  )}
+                </div>
+                <div>
+                  <select
+                    value={guestDetails.state}
+                    onChange={(e) => handleGuestChange("state", e.target.value)}
+                    disabled={isFormLocked}
+                    className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      formErrors.state ? "border-destructive" : "border-input"
+                    }`}
+                  >
+                    <option value="">Select state</option>
+                    {US_STATES.map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.state && (
+                    <p className="text-xs text-destructive mt-1">{formErrors.state}</p>
                   )}
                 </div>
                 <div>

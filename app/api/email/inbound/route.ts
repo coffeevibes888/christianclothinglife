@@ -3,6 +3,14 @@ import { prisma } from '@/db/prisma';
 
 export async function POST(req: NextRequest) {
   try {
+    // Inbound email webhooks must present the shared secret. Fail closed if the
+    // secret is unset so forged inbound messages can't be injected.
+    const expectedSecret = process.env.INBOUND_EMAIL_SECRET;
+    const providedSecret = req.headers.get('x-inbound-secret');
+    if (!expectedSecret || providedSecret !== expectedSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const payload = await req.json();
 
     const toRaw = payload.to as string | string[] | undefined;

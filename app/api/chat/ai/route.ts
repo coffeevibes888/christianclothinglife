@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/prisma';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 interface ChatRequest {
   message: string;
@@ -94,6 +95,14 @@ async function callOpenAI(message: string): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
   try {
+    const limit = rateLimit(`chat-ai:${getClientIp(request.headers)}`, 20, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: 'Too many messages. Please wait a moment.' },
+        { status: 429 },
+      );
+    }
+
     const body = (await request.json()) as ChatRequest;
     const { message, threadId } = body;
 

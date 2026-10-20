@@ -6,7 +6,19 @@ import { revalidatePath } from 'next/cache';
 import { insertProductSchema, updateProductSchema } from '../validators';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-// Printful sync disabled: imports removed
+import {
+  fetchPrintfulStoreProducts,
+  fetchPrintfulStoreProduct,
+  fetchPrintfulCatalogVariant,
+} from '@/lib/printful';
+
+function slugifyValue(input: string) {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 // Type for variant creation
 type VariantInput = {
@@ -69,9 +81,175 @@ export async function getLatestProductsByCategory(category: string, limit = LATE
   );
 }
 
-// Sync products from Printful Store API into local Product/ProductVariant tables
+// Sync products from the Printful Store API into local Product/ProductVariant
+// tables. Owner-managed fields (category, name, description, flags) are left
+// untouched on products that already exist; only price, images, variants, and
+// the Printful id are refreshed.
 export async function syncProductsFromPrintful() {
-  return { success: false, message: 'Printful sync is disabled' };
+  try {
+    if (!process.env.PRINTFUL_SECRET_KEY) {
+      return { success: false, message: 'PRINTFUL_SECRET_KEY is not configured.' };
+    }
+
+    const summaries = await fetchPrintfulStoreProducts();
+
+    let created = 0;
+    let updated = 0;
+    let variantCount = 0;
+
+    // Cache catalog lookups (color/size) so each catalog variant is fetched once.
+    const catalogCache = new Map<number, { color?: string; size?: string }>();
+
+    for (const summary of summaries) {
+      const detail = await fetchPrintfulStoreProduct(summary.id);
+      const sp = detail.sync_product;
+      const variants = detail.sync_variants || [];
+
+      const firstVariant = variants[0];
+      const basePrice = firstVariant ? Number(firstVariant.retail_price) || 0 : 0;
+
+      const images = Array.from(
+        new Set(
+          [
+            sp.thumbnail_url,
+            ...variants.flatMap((v) =>
+              (v.files || []).map((f) => f.preview_url).filter((u): u is string => Boolean(u))
+            ),
+            ...variants.map((v) => v.product?.image).filter((u): u is string => Boolean(u)),
+          ].filter((u): u is string => Boolean(u))
+        )
+      ).slice(0, 10);
+
+      const existing = await prisma.product.findFirst({
+        where: {
+          OR: [{ printfulProductId: String(sp.id) }, { slug: slugifyValue(sp.name) }],
+        },
+      });
+
+      let productId: string;
+
+      if (existing) {
+        const updatedProduct = await prisma.product.update({
+          where: { id: existing.id },
+          data: {
+            printfulProductId: String(sp.id),
+            price: basePrice,
+            images: images.length ? images : existing.images,
+          },
+        });
+        productId = updatedProduct.id;
+        updated++;
+      } else {
+        const newProduct = await prisma.product.create({
+          data: {
+            name: sp.name,
+            slug: slugifyValue(sp.name),
+            category: 'Uncategorized',
+            brand: 'Christian Clothing Life',
+            description: sp.name,
+            images: images.length ? images : [],
+            stock: 999,
+            price: basePrice,
+            printfulProductId: String(sp.id),
+          },
+        });
+        productId = newProduct.id;
+        created++;
+      }
+
+      for (const v of variants) {
+        if (!catalogCache.has(v.variant_id)) {
+          const cat = await fetchPrintfulCatalogVariant(v.variant_id);
+          catalogCache.set(v.variant_id, { color: cat?.color, size: cat?.size });
+        }
+        const { color, size } = catalogCache.get(v.variant_id) || {};
+
+        let colorId: string | null = null;
+        if (color) {
+          const colorSlug = slugifyValue(color);
+          const colorRec = await prisma.color.upsert({
+            where: { slug: colorSlug },
+            update: {},
+            create: { name: color, slug: colorSlug },
+          });
+          colorId = colorRec.id;
+        }
+
+        let sizeId: string | null = null;
+        if (size) {
+          const sizeSlug = slugifyValue(size);
+          const sizeRec = await prisma.size.upsert({
+            where: { slug: sizeSlug },
+            update: {},
+            create: { name: size, slug: sizeSlug },
+          });
+          sizeId = sizeRec.id;
+        }
+
+        const variantImages = (v.files || [])
+          .map((f) => f.preview_url)
+          .filter((u): u is string => Boolean(u));
+        const price = Number(v.retail_price) || basePrice;
+
+        if (v.sku) {
+          await prisma.productVariant.upsert({
+            where: { sku: v.sku },
+            update: {
+              productId,
+              colorId,
+              sizeId,
+              images: variantImages,
+              price,
+              printfulExternalId: String(v.id),
+            },
+            create: {
+              productId,
+              sku: v.sku,
+              colorId,
+              sizeId,
+              images: variantImages,
+              price,
+              stock: 999,
+              printfulExternalId: String(v.id),
+            },
+          });
+        } else {
+          const existingVar = await prisma.productVariant.findFirst({
+            where: { printfulExternalId: String(v.id) },
+          });
+          if (existingVar) {
+            await prisma.productVariant.update({
+              where: { id: existingVar.id },
+              data: { productId, colorId, sizeId, images: variantImages, price },
+            });
+          } else {
+            await prisma.productVariant.create({
+              data: {
+                productId,
+                colorId,
+                sizeId,
+                images: variantImages,
+                price,
+                stock: 999,
+                printfulExternalId: String(v.id),
+              },
+            });
+          }
+        }
+        variantCount++;
+      }
+    }
+
+    revalidatePath('/admin/products');
+    revalidatePath('/');
+
+    return {
+      success: true,
+      message: `Synced ${summaries.length} product(s): ${created} created, ${updated} updated, ${variantCount} variant(s).`,
+    };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
 }
 
 // Get single product by it's slug
@@ -81,6 +259,36 @@ export async function getProductBySlug(slug: string) {
     include: { variants: { include: { color: true, size: true } } },
   });
   return convertToPlainObject(product);
+}
+
+// Get related products in the same category (for "You may also like").
+export async function getRelatedProducts(
+  category: string,
+  excludeProductId: string,
+  limit = 4
+) {
+  const data = await prisma.product.findMany({
+    where: {
+      id: { not: excludeProductId },
+      OR: [
+        { category: { equals: category, mode: 'insensitive' } },
+        { subCategory: { equals: category, mode: 'insensitive' } },
+      ],
+    },
+    take: limit,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return convertToPlainObject(
+    data.map((p) => ({
+      ...p,
+      subCategory: p.subCategory ?? undefined,
+      price: Number(p.price),
+      rating: Number(p.rating),
+      salePercent: p.salePercent != null ? Number(p.salePercent) : undefined,
+      saleUntil: p.saleUntil ? new Date(p.saleUntil).toISOString() : undefined,
+    }))
+  );
 }
 
 // Get all colors

@@ -1,4 +1,4 @@
-import { getProductBySlug } from '@/lib/actions/product.actions';
+import { getProductBySlug, getRelatedProducts } from '@/lib/actions/product.actions';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getMyCart } from '@/lib/actions/cart.actions';
@@ -6,6 +6,8 @@ import { logProductView } from '@/lib/actions/tracking-events.actions';
 import ReviewList from './review-list';
 import { auth } from '@/auth';
 import ProductDetailClient from '@/components/shared/product/product-detail-client';
+import ProductList from '@/components/shared/product/product-list';
+import type { Product } from '@/types';
 import { JsonLd } from '@/components/seo/json-ld';
 import { buildMetadata, breadcrumbSchema, productSchema } from '@/lib/seo';
 
@@ -62,6 +64,11 @@ const ProductDetailsPage = async (props: {
   const userId = session?.user?.id;
 
   const cart = await getMyCart();
+  const relatedProducts = (await getRelatedProducts(
+    product.category,
+    product.id,
+    4
+  )) as Product[];
 
   const clientProduct = {
     ...product,
@@ -119,6 +126,12 @@ const ProductDetailsPage = async (props: {
           productSlug={product.slug}
         />
       </section>
+
+      {relatedProducts.length > 0 && (
+        <section className='mt-12'>
+          <ProductList data={relatedProducts} title='You may also like' />
+        </section>
+      )}
     </>
   );
 };

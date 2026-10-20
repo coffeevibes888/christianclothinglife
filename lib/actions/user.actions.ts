@@ -10,6 +10,7 @@ import {
   savedPaymentMethodSchema,
 } from '../validators';
 import { auth, signIn, signOut } from '@/auth';
+import { requireAdminAction } from '@/lib/auth-guard';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { hash } from '../encrypt';
 import { prisma } from '@/db/prisma';
@@ -95,13 +96,25 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
   }
 }
 
-// Get user by the ID
+// Get user by the ID — only the user themselves or an admin may read it, and
+// the password hash is never returned.
 export async function getUserById(userId: string) {
+  const session = await auth();
+  const requesterId = session?.user?.id;
+  const role = session?.user?.role;
+  const isAdmin = role === 'admin' || role === 'superAdmin';
+
+  if (!requesterId || (requesterId !== userId && !isAdmin)) {
+    throw new Error('Not authorized');
+  }
+
   const user = await prisma.user.findFirst({
     where: { id: userId },
   });
   if (!user) throw new Error('User not found');
-  return user;
+
+  // Never expose the password hash to callers.
+  return { ...user, password: null };
 }
 
 // Update the user's address
@@ -202,6 +215,8 @@ export async function getAllUsers({
   page: number;
   query: string;
 }) {
+  await requireAdminAction();
+
   const queryFilter: Prisma.UserWhereInput =
     query && query !== 'all'
       ? {
@@ -239,6 +254,8 @@ export async function getAllUsers({
 // Delete a user
 export async function deleteUser(id: string) {
   try {
+    await requireAdminAction();
+
     await prisma.user.delete({ where: { id } });
 
     revalidatePath('/admin/users');
@@ -258,6 +275,13 @@ export async function deleteUser(id: string) {
 // Update a user
 export async function updateUser(user: z.infer<typeof updateUserSchema>) {
   try {
+    const session = await requireAdminAction();
+
+    // Only a superAdmin may grant the superAdmin role.
+    if (user.role === 'superAdmin' && session.user?.role !== 'superAdmin') {
+      throw new Error('Not authorized to assign the superAdmin role');
+    }
+
     await prisma.user.update({
       where: { id: user.id },
       data: {

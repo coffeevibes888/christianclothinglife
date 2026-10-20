@@ -102,7 +102,9 @@ export default function AddressForm({
           </p>
           <p className='text-sm text-gray-300'>{address.streetAddress}</p>
           <p className='text-sm text-gray-300'>
-            {address.city}, {address.postalCode}
+            {address.city}
+            {(address as { state?: string }).state ? `, ${(address as { state?: string }).state}` : ''}{' '}
+            {address.postalCode}
           </p>
           <p className='text-sm text-gray-300'>{address.country}</p>
         </div>

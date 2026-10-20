@@ -4,8 +4,9 @@ import { auth } from '@/auth';
 
 export async function POST() {
   const session = await auth();
+  const role = session?.user?.role;
 
-  if (!session) {
+  if (role !== 'admin' && role !== 'superAdmin') {
     return NextResponse.json({ success: false, message: 'Not authorized' }, { status: 403 });
   }
 

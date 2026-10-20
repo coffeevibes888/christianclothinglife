@@ -6,7 +6,8 @@ export type SecurityEventType =
   | 'failed_login'
   | 'login_success'
   | 'suspicious_activity'
-  | 'bot_detected';
+  | 'bot_detected'
+  | 'rate_limited';
 
 export type SecurityEventInput = {
   eventType: SecurityEventType;
