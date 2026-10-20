@@ -5,6 +5,14 @@ import { updateFulfillmentSettings } from '@/lib/actions/settings.actions';
 import { syncProductsFromPrintful } from '@/lib/actions/product.actions';
 import { useToast } from '@/hooks/use-toast';
 
+type Diagnostics = {
+  configuredStoreId: string | null;
+  stores: { id: number; name: string; type?: string }[] | { error?: string };
+  productsReturnedByToken:
+    | { id: number; name: string; variants: number }[]
+    | { error?: string };
+};
+
 export default function PrintfulSettingsCard({
   initialEnabled,
 }: {
@@ -13,6 +21,8 @@ export default function PrintfulSettingsCard({
   const [enabled, setEnabled] = useState(initialEnabled);
   const [isSaving, startSaving] = useTransition();
   const [isSyncing, startSyncing] = useTransition();
+  const [isChecking, startChecking] = useTransition();
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const { toast } = useToast();
 
   const handleToggle = () => {
@@ -37,6 +47,36 @@ export default function PrintfulSettingsCard({
       });
     });
   };
+
+  const handleCheck = () => {
+    startChecking(async () => {
+      try {
+        const res = await fetch('/api/printful/diagnostics', { cache: 'no-store' });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          toast({
+            variant: 'destructive',
+            description: data.message || 'Could not reach Printful.',
+          });
+          setDiagnostics(null);
+          return;
+        }
+        setDiagnostics({
+          configuredStoreId: data.configuredStoreId,
+          stores: data.stores,
+          productsReturnedByToken: data.productsReturnedByToken,
+        });
+      } catch {
+        toast({ variant: 'destructive', description: 'Could not reach Printful.' });
+        setDiagnostics(null);
+      }
+    });
+  };
+
+  const storesArray = Array.isArray(diagnostics?.stores) ? diagnostics?.stores : null;
+  const productsArray = Array.isArray(diagnostics?.productsReturnedByToken)
+    ? diagnostics?.productsReturnedByToken
+    : null;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 space-y-5">
@@ -84,10 +124,89 @@ export default function PrintfulSettingsCard({
         >
           {isSyncing ? 'Syncing…' : 'Sync products from Printful'}
         </button>
+        <button
+          type="button"
+          onClick={handleCheck}
+          disabled={isChecking}
+          className="rounded-lg border border-white/20 bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+        >
+          {isChecking ? 'Checking…' : 'Check connection'}
+        </button>
         <span className="text-xs text-slate-400">
-          Pulls your Printful products, variants, colors, and sizes into the store.
+          Check which Printful store this site is connected to before syncing.
         </span>
       </div>
+
+      {diagnostics && (
+        <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4 space-y-3 text-sm">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Configured store id (PRINTFUL_STORE_ID)
+            </p>
+            <p className="font-mono text-white">
+              {diagnostics.configuredStoreId || 'not set'}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Stores this token can access
+            </p>
+            {storesArray ? (
+              storesArray.length ? (
+                <ul className="mt-1 space-y-1">
+                  {storesArray.map((s) => (
+                    <li key={s.id} className="text-white">
+                      <span className="font-mono text-cyan-300">{s.id}</span> — {s.name}
+                      {s.type ? (
+                        <span className="text-slate-500"> ({s.type})</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-slate-400">No stores returned.</p>
+              )
+            ) : (
+              <p className="text-amber-300">
+                {(diagnostics.stores as { error?: string }).error ||
+                  'Could not list stores (token may be store-level).'}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Products this token currently returns
+            </p>
+            {productsArray ? (
+              productsArray.length ? (
+                <ul className="mt-1 space-y-1">
+                  {productsArray.map((p) => (
+                    <li key={p.id} className="text-white">
+                      {p.name}{' '}
+                      <span className="text-slate-500">({p.variants} variants)</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-slate-400">No products in this store.</p>
+              )
+            ) : (
+              <p className="text-amber-300">
+                {(diagnostics.productsReturnedByToken as { error?: string }).error ||
+                  'Could not list products.'}
+              </p>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-500">
+            If the products above aren&apos;t from the store you expect, set
+            PRINTFUL_STORE_ID to the correct store id (or use a token created
+            inside that store), then redeploy and sync again.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

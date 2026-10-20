@@ -86,9 +86,33 @@ export type PrintfulRecipient = {
   phone?: string;
 };
 
+export type PrintfulStore = {
+  id: number;
+  name: string;
+  type?: string;
+};
+
 /* ------------------------------------------------------------------ */
 /* API calls                                                           */
 /* ------------------------------------------------------------------ */
+
+// List the stores the current token can access. For an account-level token
+// this returns every store on the account; for a store-level token it returns
+// just that store. Used for diagnostics / picking the right PRINTFUL_STORE_ID.
+export async function fetchPrintfulStores(): Promise<PrintfulStore[]> {
+  const res = await fetch(`${PRINTFUL_BASE_URL}/stores`, {
+    method: 'GET',
+    headers: getPrintfulHeaders(),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch Printful stores: ${res.status} ${res.statusText}`);
+  }
+
+  const data = (await res.json()) as { result?: PrintfulStore[] };
+  return data.result ?? [];
+}
 
 // Fetch list of products from the Printful Sync API.
 export async function fetchPrintfulStoreProducts(): Promise<PrintfulSyncProductSummary[]> {
