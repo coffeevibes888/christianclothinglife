@@ -216,6 +216,13 @@ const ProductForm = ({
                     <option value="" disabled>
                       Select a category
                     </option>
+                    {/* Show the current value when it isn't one of the standard
+                        categories (e.g. "Uncategorized" from a Printful sync) so
+                        it displays and the admin can clearly change it. */}
+                    {field.value &&
+                      !(PRODUCT_CATEGORIES as readonly string[]).includes(field.value) && (
+                        <option value={field.value}>{field.value} (current)</option>
+                      )}
                     {PRODUCT_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
                         {c}

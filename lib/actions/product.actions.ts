@@ -23,6 +23,16 @@ function slugifyValue(input: string) {
 // Printful sync-variant names look like "Product Name - Color / Size" (or just
 // "- Size" / "- Color"). Parsing color/size from the name avoids a per-variant
 // catalog API call, which is what was tripping Printful's rate limit (429).
+// Map a Printful product type / name to one of the store's homepage categories.
+// Returns 'Uncategorized' only when nothing matches.
+function mapPrintfulTypeToCategory(typeName?: string, productName?: string): string {
+  const hay = `${typeName || ''} ${productName || ''}`.toLowerCase();
+  if (/\b(hoodie|sweatshirt|crewneck|pullover|sweater)\b/.test(hay)) return 'Hoodies';
+  if (/\b(mug|cup|tumbler|bottle|drinkware)\b/.test(hay)) return 'Coffee Mugs';
+  if (/\b(t-?shirt|tee|tank|top|v-?neck|long.?sleeve|polo|jersey)\b/.test(hay)) return 'T-Shirts';
+  return 'Uncategorized';
+}
+
 function parseVariantNameColorSize(name: string): { color?: string; size?: string } {
   const idx = name.lastIndexOf(' - ');
   if (idx === -1) return {};
@@ -129,11 +139,14 @@ export async function syncProductsFromPrintful() {
       { color?: string; colorCode?: string; size?: string }
     >();
     const fetchedCatalogProducts = new Set<number>();
+    const catalogTypeByProductId = new Map<number, string>();
 
     const ensureCatalogForProduct = async (catalogProductId?: number) => {
       if (!catalogProductId || fetchedCatalogProducts.has(catalogProductId)) return;
       fetchedCatalogProducts.add(catalogProductId);
-      const catalogVariants = await fetchPrintfulCatalogProduct(catalogProductId);
+      const { typeName, variants: catalogVariants } =
+        await fetchPrintfulCatalogProduct(catalogProductId);
+      if (typeName) catalogTypeByProductId.set(catalogProductId, typeName);
       for (const cv of catalogVariants) {
         catalogVariantCache.set(cv.id, {
           color: cv.color ?? undefined,
@@ -148,9 +161,15 @@ export async function syncProductsFromPrintful() {
       const sp = detail.sync_product;
       const variants = detail.sync_variants || [];
 
-      // One catalog call per product gives authoritative color names + hex.
-      await ensureCatalogForProduct(
-        variants.find((v) => v.product?.product_id)?.product?.product_id
+      // One catalog call per product gives authoritative color names + hex and
+      // the product type we use to auto-assign a store category.
+      const catalogProductId = variants.find((v) => v.product?.product_id)?.product
+        ?.product_id;
+      await ensureCatalogForProduct(catalogProductId);
+
+      const detectedCategory = mapPrintfulTypeToCategory(
+        catalogProductId ? catalogTypeByProductId.get(catalogProductId) : undefined,
+        sp.name
       );
 
       const firstVariant = variants[0];
@@ -177,12 +196,19 @@ export async function syncProductsFromPrintful() {
       let productId: string;
 
       if (existing) {
+        // Preserve a manually-set category; only (re)assign when the existing
+        // one is still blank/Uncategorized so re-syncs can upgrade older imports.
+        const keepCategory =
+          existing.category &&
+          existing.category.toLowerCase() !== 'uncategorized';
+
         const updatedProduct = await prisma.product.update({
           where: { id: existing.id },
           data: {
             printfulProductId: String(sp.id),
             price: basePrice,
             images: images.length ? images : existing.images,
+            ...(keepCategory ? {} : { category: detectedCategory }),
           },
         });
         productId = updatedProduct.id;
@@ -192,7 +218,7 @@ export async function syncProductsFromPrintful() {
           data: {
             name: sp.name,
             slug: slugifyValue(sp.name),
-            category: 'Uncategorized',
+            category: detectedCategory,
             brand: 'Christian Clothing Life',
             description: sp.name,
             images: images.length ? images : [],
@@ -635,6 +661,11 @@ export async function updateProduct(data: z.infer<typeof updateProductSchema>) {
     });
 
     revalidatePath('/admin/products');
+    // Refresh the storefront so a category change shows on the homepage rows,
+    // search, and the product page immediately.
+    revalidatePath('/');
+    revalidatePath('/search');
+    revalidatePath(`/product/${product.slug}`);
 
     return {
       success: true,
