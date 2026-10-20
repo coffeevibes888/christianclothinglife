@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { Check, Loader } from 'lucide-react';
 import { Cart, CartItem } from '@/types';
+import { colorNameToHex } from '@/lib/color-map';
 import ProductPrice from '@/components/shared/product/product-price';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -191,51 +192,33 @@ export default function VariantSelector({
               </span>
             )}
           </div>
-          <div className='flex flex-wrap gap-2.5'>
+          <div className='flex flex-wrap gap-2'>
             {effectiveColors.map((c) => {
-              const hex = (c as { hex?: string | null }).hex || undefined;
+              const swatch = (c as { hex?: string | null }).hex || colorNameToHex(c.name);
               const isActive = selectedColor === c.slug;
-
-              if (hex) {
-                return (
-                  <button
-                    key={c.id}
-                    type='button'
-                    title={c.name}
-                    aria-label={c.name}
-                    aria-pressed={isActive}
-                    onClick={() => setSelectedColor(c.slug)}
-                    className={`relative h-9 w-9 rounded-full border transition-all ${
-                      isActive
-                        ? 'border-slate-900 ring-2 ring-slate-900 ring-offset-2'
-                        : 'border-slate-300 hover:border-slate-500'
-                    }`}
-                    style={{ backgroundColor: hex }}
-                  >
-                    {isActive && (
-                      <Check
-                        className={`absolute inset-0 m-auto h-4 w-4 ${
-                          isLightColor(hex) ? 'text-slate-900' : 'text-white'
-                        }`}
-                      />
-                    )}
-                  </button>
-                );
-              }
 
               return (
                 <button
                   key={c.id}
                   type='button'
+                  title={c.name}
+                  aria-label={c.name}
                   aria-pressed={isActive}
                   onClick={() => setSelectedColor(c.slug)}
-                  className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-all ${
+                  className={`relative h-7 w-7 rounded-full border transition-all ${
                     isActive
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-300 text-slate-700 hover:border-slate-900'
+                      ? 'border-slate-900 ring-2 ring-slate-900 ring-offset-1'
+                      : 'border-slate-300 hover:scale-110 hover:border-slate-500'
                   }`}
+                  style={{ backgroundColor: swatch }}
                 >
-                  {c.name}
+                  {isActive && (
+                    <Check
+                      className={`absolute inset-0 m-auto h-3.5 w-3.5 ${
+                        isLightColor(swatch) ? 'text-slate-900' : 'text-white'
+                      }`}
+                    />
+                  )}
                 </button>
               );
             })}

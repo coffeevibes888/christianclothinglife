@@ -28,7 +28,7 @@ const ProductImages = ({
     }
   }, [activeImage, images]);
 
-  const handleThumbnailClick = (image: string, index: number) => {
+  const handleThumbnailChange = (image: string, index: number) => {
     setCurrent(index);
     if (onImageClick) {
       onImageClick(image);
@@ -53,18 +53,33 @@ const ProductImages = ({
           </div>
         )}
       </div>
-      <div className='flex'>
+
+      {/* Larger thumbnails that change the main image on hover, with a
+          horizontally scrollable strip when there are many. */}
+      <div className='flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin]'>
         {images.map((image, index) => (
-          <div
+          <button
+            type='button'
             key={image}
-            onClick={() => handleThumbnailClick(image, index)}
+            onMouseEnter={() => handleThumbnailChange(image, index)}
+            onFocus={() => handleThumbnailChange(image, index)}
+            onClick={() => handleThumbnailChange(image, index)}
+            aria-label={`View image ${index + 1}`}
             className={cn(
-              'border mr-2 cursor-pointer hover:border-orange-600',
-              current === index && 'border-orange-500'
+              'flex-shrink-0 overflow-hidden rounded-md border transition-colors',
+              current === index
+                ? 'border-slate-900 ring-1 ring-slate-900'
+                : 'border-slate-200 hover:border-slate-500'
             )}
           >
-            <Image src={image} alt={`${baseAlt} thumbnail ${index + 1}`} width={100} height={100} />
-          </div>
+            <Image
+              src={image}
+              alt={`${baseAlt} thumbnail ${index + 1}`}
+              width={80}
+              height={80}
+              className='h-20 w-20 object-cover'
+            />
+          </button>
         ))}
       </div>
     </div>

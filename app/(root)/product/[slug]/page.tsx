@@ -118,14 +118,16 @@ const ProductDetailsPage = async (props: {
         ]}
       />
       <ProductDetailClient product={clientProduct} cart={cart} />
-      <section className='mt-10'>
-        <h2 className='h2-bold mb-5'>Customer Reviews</h2>
-        <ReviewList
-          userId={userId || ''}
-          productId={product.id}
-          productSlug={product.slug}
-        />
-      </section>
+      {product.numReviews > 0 && (
+        <section className='mt-10'>
+          <h2 className='h2-bold mb-5'>Customer Reviews</h2>
+          <ReviewList
+            userId={userId || ''}
+            productId={product.id}
+            productSlug={product.slug}
+          />
+        </section>
+      )}
 
       {relatedProducts.length > 0 && (
         <section className='mt-12'>
