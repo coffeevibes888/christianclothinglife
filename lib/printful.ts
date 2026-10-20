@@ -22,6 +22,36 @@ function getPrintfulHeaders() {
   return headers;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Fetch wrapper that automatically retries on 429 (Printful rate limit, ~2
+ * req/sec) with exponential backoff, honoring the Retry-After header when the
+ * API sends one. Returns the final Response for the caller to handle.
+ */
+async function printfulFetch(
+  path: string,
+  init: RequestInit = {},
+  retries = 5
+): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${PRINTFUL_BASE_URL}${path}`, {
+      ...init,
+      headers: { ...getPrintfulHeaders(), ...(init.headers as Record<string, string>) },
+      cache: 'no-store',
+    });
+
+    if (res.status !== 429 || attempt >= retries) return res;
+
+    const retryAfter = Number(res.headers.get('retry-after'));
+    const waitMs =
+      Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(1000 * 2 ** attempt, 20000);
+    await sleep(waitMs);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Response shapes (Printful v1 Sync API)                              */
 /* ------------------------------------------------------------------ */
@@ -100,11 +130,7 @@ export type PrintfulStore = {
 // this returns every store on the account; for a store-level token it returns
 // just that store. Used for diagnostics / picking the right PRINTFUL_STORE_ID.
 export async function fetchPrintfulStores(): Promise<PrintfulStore[]> {
-  const res = await fetch(`${PRINTFUL_BASE_URL}/stores`, {
-    method: 'GET',
-    headers: getPrintfulHeaders(),
-    cache: 'no-store',
-  });
+  const res = await printfulFetch('/stores');
 
   if (!res.ok) {
     throw new Error(`Failed to fetch Printful stores: ${res.status} ${res.statusText}`);
@@ -116,11 +142,7 @@ export async function fetchPrintfulStores(): Promise<PrintfulStore[]> {
 
 // Fetch list of products from the Printful Sync API.
 export async function fetchPrintfulStoreProducts(): Promise<PrintfulSyncProductSummary[]> {
-  const res = await fetch(`${PRINTFUL_BASE_URL}/sync/products`, {
-    method: 'GET',
-    headers: getPrintfulHeaders(),
-    cache: 'no-store',
-  });
+  const res = await printfulFetch('/sync/products');
 
   if (!res.ok) {
     throw new Error(`Failed to fetch Printful products: ${res.status} ${res.statusText}`);
@@ -134,11 +156,7 @@ export async function fetchPrintfulStoreProducts(): Promise<PrintfulSyncProductS
 export async function fetchPrintfulStoreProduct(
   id: number | string
 ): Promise<PrintfulSyncProductDetail> {
-  const res = await fetch(`${PRINTFUL_BASE_URL}/sync/products/${id}`, {
-    method: 'GET',
-    headers: getPrintfulHeaders(),
-    cache: 'no-store',
-  });
+  const res = await printfulFetch(`/sync/products/${id}`);
 
   if (!res.ok) {
     throw new Error(
@@ -155,11 +173,7 @@ export async function fetchPrintfulStoreProduct(
 export async function fetchPrintfulCatalogVariant(
   variantId: number
 ): Promise<PrintfulCatalogVariant | null> {
-  const res = await fetch(`${PRINTFUL_BASE_URL}/products/variant/${variantId}`, {
-    method: 'GET',
-    headers: getPrintfulHeaders(),
-    cache: 'no-store',
-  });
+  const res = await printfulFetch(`/products/variant/${variantId}`);
 
   if (!res.ok) return null;
 
@@ -177,19 +191,14 @@ export async function createPrintfulOrder(params: {
 }): Promise<{ id: number; status: string }> {
   const { externalId, recipient, items, confirm = true } = params;
 
-  const res = await fetch(
-    `${PRINTFUL_BASE_URL}/orders${confirm ? '?confirm=1' : ''}`,
-    {
-      method: 'POST',
-      headers: getPrintfulHeaders(),
-      cache: 'no-store',
-      body: JSON.stringify({
-        external_id: externalId,
-        recipient,
-        items,
-      }),
-    }
-  );
+  const res = await printfulFetch(`/orders${confirm ? '?confirm=1' : ''}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      external_id: externalId,
+      recipient,
+      items,
+    }),
+  });
 
   const data = (await res.json()) as {
     result?: { id: number; status: string };

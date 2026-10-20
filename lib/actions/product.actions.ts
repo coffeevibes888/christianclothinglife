@@ -20,6 +20,30 @@ function slugifyValue(input: string) {
     .replace(/^-+|-+$/g, '');
 }
 
+// Printful sync-variant names look like "Product Name - Color / Size" (or just
+// "- Size" / "- Color"). Parsing color/size from the name avoids a per-variant
+// catalog API call, which is what was tripping Printful's rate limit (429).
+function parseVariantNameColorSize(name: string): { color?: string; size?: string } {
+  const idx = name.lastIndexOf(' - ');
+  if (idx === -1) return {};
+  const tail = name.slice(idx + 3).trim();
+  if (!tail) return {};
+
+  if (tail.includes('/')) {
+    const parts = tail.split('/').map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      return { color: parts[0], size: parts[parts.length - 1] };
+    }
+    if (parts.length === 1) return { color: parts[0] };
+  }
+
+  const sizeTokens = new Set([
+    'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', '4XL', '5XL', '2XLT', '3XLT',
+  ]);
+  if (sizeTokens.has(tail.toUpperCase())) return { size: tail };
+  return { color: tail };
+}
+
 // Type for variant creation
 type VariantInput = {
   productId: string;
@@ -158,11 +182,16 @@ export async function syncProductsFromPrintful() {
       }
 
       for (const v of variants) {
-        if (!catalogCache.has(v.variant_id)) {
-          const cat = await fetchPrintfulCatalogVariant(v.variant_id);
-          catalogCache.set(v.variant_id, { color: cat?.color, size: cat?.size });
+        // Prefer parsing color/size from the variant name (no API call). Only
+        // fall back to the catalog endpoint when the name has no attributes.
+        let { color, size } = parseVariantNameColorSize(v.name);
+        if (!color && !size) {
+          if (!catalogCache.has(v.variant_id)) {
+            const cat = await fetchPrintfulCatalogVariant(v.variant_id);
+            catalogCache.set(v.variant_id, { color: cat?.color, size: cat?.size });
+          }
+          ({ color, size } = catalogCache.get(v.variant_id) || {});
         }
-        const { color, size } = catalogCache.get(v.variant_id) || {};
 
         let colorId: string | null = null;
         if (color) {
