@@ -181,6 +181,22 @@ export async function fetchPrintfulCatalogVariant(
   return data.result?.variant ?? null;
 }
 
+// Fetch ALL catalog variants for a catalog product in one call — each includes
+// the authoritative color name, hex (color_code), and size. This is far cheaper
+// than one request per variant and avoids the rate limit.
+export async function fetchPrintfulCatalogProduct(
+  productId: number
+): Promise<PrintfulCatalogVariant[]> {
+  const res = await printfulFetch(`/products/${productId}`);
+
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as {
+    result?: { variants?: PrintfulCatalogVariant[] };
+  };
+  return data.result?.variants ?? [];
+}
+
 // Create a fulfillment order in Printful. Pass confirm=true to submit it for
 // fulfillment immediately; confirm=false leaves it as an editable draft.
 export async function createPrintfulOrder(params: {

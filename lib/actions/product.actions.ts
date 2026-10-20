@@ -9,7 +9,7 @@ import { Prisma } from '@prisma/client';
 import {
   fetchPrintfulStoreProducts,
   fetchPrintfulStoreProduct,
-  fetchPrintfulCatalogVariant,
+  fetchPrintfulCatalogProduct,
 } from '@/lib/printful';
 
 function slugifyValue(input: string) {
@@ -121,13 +121,37 @@ export async function syncProductsFromPrintful() {
     let updated = 0;
     let variantCount = 0;
 
-    // Cache catalog lookups (color/size) so each catalog variant is fetched once.
-    const catalogCache = new Map<number, { color?: string; size?: string }>();
+    // Cache catalog variant data (color + real hex + size). We fetch one catalog
+    // PRODUCT at a time (a single API call per product) rather than one request
+    // per variant, which keeps us well under Printful's rate limit.
+    const catalogVariantCache = new Map<
+      number,
+      { color?: string; colorCode?: string; size?: string }
+    >();
+    const fetchedCatalogProducts = new Set<number>();
+
+    const ensureCatalogForProduct = async (catalogProductId?: number) => {
+      if (!catalogProductId || fetchedCatalogProducts.has(catalogProductId)) return;
+      fetchedCatalogProducts.add(catalogProductId);
+      const catalogVariants = await fetchPrintfulCatalogProduct(catalogProductId);
+      for (const cv of catalogVariants) {
+        catalogVariantCache.set(cv.id, {
+          color: cv.color ?? undefined,
+          colorCode: cv.color_code ?? undefined,
+          size: cv.size ?? undefined,
+        });
+      }
+    };
 
     for (const summary of summaries) {
       const detail = await fetchPrintfulStoreProduct(summary.id);
       const sp = detail.sync_product;
       const variants = detail.sync_variants || [];
+
+      // One catalog call per product gives authoritative color names + hex.
+      await ensureCatalogForProduct(
+        variants.find((v) => v.product?.product_id)?.product?.product_id
+      );
 
       const firstVariant = variants[0];
       const basePrice = firstVariant ? Number(firstVariant.retail_price) || 0 : 0;
@@ -182,15 +206,16 @@ export async function syncProductsFromPrintful() {
       }
 
       for (const v of variants) {
-        // Prefer parsing color/size from the variant name (no API call). Only
-        // fall back to the catalog endpoint when the name has no attributes.
-        let { color, size } = parseVariantNameColorSize(v.name);
+        // Use the authoritative Printful catalog color (name + hex) and size;
+        // fall back to parsing the variant name only if the catalog had nothing.
+        const catalog = catalogVariantCache.get(v.variant_id);
+        let color = catalog?.color;
+        let size = catalog?.size;
+        const colorCode = catalog?.colorCode;
         if (!color && !size) {
-          if (!catalogCache.has(v.variant_id)) {
-            const cat = await fetchPrintfulCatalogVariant(v.variant_id);
-            catalogCache.set(v.variant_id, { color: cat?.color, size: cat?.size });
-          }
-          ({ color, size } = catalogCache.get(v.variant_id) || {});
+          const parsed = parseVariantNameColorSize(v.name);
+          color = parsed.color;
+          size = parsed.size;
         }
 
         let colorId: string | null = null;
@@ -198,8 +223,9 @@ export async function syncProductsFromPrintful() {
           const colorSlug = slugifyValue(color);
           const colorRec = await prisma.color.upsert({
             where: { slug: colorSlug },
-            update: {},
-            create: { name: color, slug: colorSlug },
+            // Backfill/refresh the real hex from Printful on every sync.
+            update: colorCode ? { hex: colorCode } : {},
+            create: { name: color, slug: colorSlug, hex: colorCode ?? null },
           });
           colorId = colorRec.id;
         }
@@ -215,9 +241,22 @@ export async function syncProductsFromPrintful() {
           sizeId = sizeRec.id;
         }
 
-        const variantImages = (v.files || [])
-          .map((f) => f.preview_url)
-          .filter((u): u is string => Boolean(u));
+        // Prefer the generated garment mockup (Printful "preview" file) so the
+        // stored image matches the variant's color; then any other previews,
+        // then the catalog garment image as a last resort.
+        const previewFiles = (v.files || []).filter(
+          (f) => f.type === 'preview' && f.preview_url
+        );
+        const otherFiles = (v.files || []).filter(
+          (f) => f.type !== 'preview' && f.preview_url
+        );
+        const variantImages = [
+          ...previewFiles.map((f) => f.preview_url as string),
+          ...otherFiles.map((f) => f.preview_url as string),
+        ];
+        if (variantImages.length === 0 && v.product?.image) {
+          variantImages.push(v.product.image);
+        }
         const price = Number(v.retail_price) || basePrice;
 
         if (v.sku) {

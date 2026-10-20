@@ -52,95 +52,59 @@ export default function ProductDetailClient({
     return Array.from(imagesSet);
   }, [baseImages, product.variants]);
 
-  // Unique ordered list of colors from variants (used to align colors with base images)
-  const variantColors = useMemo(
-    () => {
-      const map = new Map<string, { slug: string; name: string }>();
-      (product.variants || []).forEach((v) => {
-        if (v.color?.slug) {
-          map.set(v.color.slug, { slug: v.color.slug, name: v.color.name });
-        }
-      });
-      return Array.from(map.values());
-    },
-    [product.variants]
-  );
-
-  // Handle when a color is selected
+  // Handle when a color is selected.
   const handleColorSelected = useCallback(
-    (colorSlug?: string, colorName?: string) => {
+    (colorSlug: string | undefined, colorName?: string) => {
       setActiveColorName(colorName);
 
-      if (!colorSlug && !colorName) {
+      // For products with real variants, the image is driven authoritatively by
+      // the selected variant (handleVariantChange) so it always matches the
+      // chosen color. Nothing else to do here.
+      if ((product.variants || []).length > 0) return;
+
+      // Manual products encode color via imageColors[] (index-aligned to
+      // images[]): show the image whose imageColor matches the chosen color.
+      if (!colorName) {
         setActiveImage(baseImages[0] || '');
         return;
       }
 
-      // 0) Try to map selected color name directly to a base image via imageColors
-      if (colorName) {
-        const directMatch = imageColorMap.find(
-          (entry) => entry.colorName && entry.colorName.toLowerCase() === colorName.toLowerCase()
-        );
-
-        if (directMatch) {
-          setActiveImage(directMatch.image);
-          return;
-        }
-      }
-
-      const variants = product.variants || [];
-
-      // 1) Try to find a matching variant by color
-      const matchingVariant = variants.find(
-        (v) => v.color?.slug === colorSlug || v.color?.name === colorName
+      const directMatch = imageColorMap.find(
+        (entry) => entry.colorName && entry.colorName.toLowerCase() === colorName.toLowerCase()
       );
-
-      if (matchingVariant?.images && matchingVariant.images.length > 0) {
-        setActiveImage(matchingVariant.images[0]);
+      if (directMatch) {
+        setActiveImage(directMatch.image);
         return;
       }
 
-      // 2) Fallback: look for any image whose URL includes the color name
-      if (colorName) {
-        const normalized = colorName.toLowerCase().replace(/\s+/g, '');
-        const fallbackByName = allImages.find((img) =>
-          img.toLowerCase().replace(/\s+/g, '').includes(normalized)
-        );
-
-        if (fallbackByName) {
-          setActiveImage(fallbackByName);
-          return;
-        }
-      }
-
-      // 3) Fallback: align color order with base image order
-      if (colorSlug) {
-        const colorIndex = variantColors.findIndex((c) => c.slug === colorSlug);
-        if (colorIndex !== -1 && baseImages[colorIndex]) {
-          setActiveImage(baseImages[colorIndex]);
-          return;
-        }
-      }
-
-      // 4) Final fallback: first base image
-      if (baseImages[0]) {
-        setActiveImage(baseImages[0]);
-      }
+      const normalized = colorName.toLowerCase().replace(/\s+/g, '');
+      const byName = allImages.find((img) =>
+        img.toLowerCase().replace(/\s+/g, '').includes(normalized)
+      );
+      if (byName) setActiveImage(byName);
     },
-    [allImages, baseImages, product.variants, variantColors, imageColorMap]
+    [allImages, baseImages, imageColorMap, product.variants]
   );
 
-  // Handle variant change (size or color)
+  // Handle variant change (color and/or size). The selected variant is the
+  // single source of truth for the main image.
   const handleVariantChange = useCallback(
     (variant?: Variant) => {
-      if (variant?.images && variant.images.length > 0) {
-        setActiveImage(variant.images[0]);
-        if (variant.color?.name) setActiveColorName(variant.color.name);
-      } else if (baseImages[0]) {
-        setActiveImage(baseImages[0]);
-      }
+      if (!variant) return;
+      if (variant.color?.name) setActiveColorName(variant.color.name);
+
+      // Prefer this variant's own mockup; if it has none (e.g. only the size
+      // differs), borrow an image from another variant of the same color.
+      const image =
+        variant.images?.[0] ||
+        (product.variants || []).find(
+          (v) =>
+            v.color?.slug === variant.color?.slug && v.images && v.images.length > 0
+        )?.images?.[0];
+
+      if (image) setActiveImage(image);
     },
-    [baseImages]
+    [product.variants]
   );
 
   // Handle thumbnail click

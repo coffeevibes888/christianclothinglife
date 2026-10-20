@@ -80,7 +80,7 @@ const ProductDetailsPage = async (props: {
       price: Number(v.price),
       images: v.images as string[] | undefined,
       color: v.color
-        ? { id: v.color.id, name: v.color.name, slug: v.color.slug }
+        ? { id: v.color.id, name: v.color.name, slug: v.color.slug, hex: v.color.hex }
         : null,
       size: v.size
         ? { id: v.size.id, name: v.size.name, slug: v.size.slug }
