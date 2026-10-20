@@ -1,6 +1,7 @@
 import { getProductBySlug } from '@/lib/actions/product.actions';
 import { notFound } from 'next/navigation';
 import { getMyCart } from '@/lib/actions/cart.actions';
+import { logProductView } from '@/lib/actions/tracking-events.actions';
 import ReviewList from './review-list';
 import { auth } from '@/auth';
 import ProductDetailClient from '@/components/shared/product/product-detail-client';
@@ -12,6 +13,9 @@ const ProductDetailsPage = async (props: {
 
   const product = await getProductBySlug(slug);
   if (!product) notFound();
+
+  // Record the product view for the super-admin product analytics.
+  await logProductView({ productId: product.id, fromPage: `/product/${slug}` });
 
   const session = await auth();
   const userId = session?.user?.id;

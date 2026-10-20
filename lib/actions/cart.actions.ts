@@ -14,6 +14,7 @@ import {
 } from '../constants';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
+import { logCartEvent } from './tracking-events.actions';
 
 // Calculate cart prices with dynamic settings
 const calcPrice = async (
@@ -174,6 +175,14 @@ export async function addItemToCart(data: CartItem) {
         data: newCart,
       });
 
+      await logCartEvent({
+        eventType: 'add',
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        quantity: item.qty,
+        price: Number(item.price),
+      });
+
       revalidatePath(`/product/${product.slug}`);
 
       return {
@@ -208,6 +217,14 @@ export async function addItemToCart(data: CartItem) {
           items: cart.items as Prisma.CartUpdateitemsInput[],
           ...prices,
         },
+      });
+
+      await logCartEvent({
+        eventType: existItem ? 'update_qty' : 'add',
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        quantity: item.qty,
+        price: Number(item.price),
       });
 
       revalidatePath(`/product/${product.slug}`);
@@ -294,6 +311,12 @@ export async function removeItemFromCart(productId: string, variantId?: string) 
         items: cart.items as Prisma.CartUpdateitemsInput[],
         ...prices,
       },
+    });
+
+    await logCartEvent({
+      eventType: 'remove',
+      productId,
+      variantId: variantId ?? null,
     });
 
     revalidatePath(`/product/${product.slug}`);

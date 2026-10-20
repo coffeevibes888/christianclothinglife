@@ -5,6 +5,7 @@ import {
   getAllProducts,
   getAllCategories,
 } from '@/lib/actions/product.actions';
+import { logSearchQuery } from '@/lib/actions/tracking-events.actions';
 import Link from 'next/link';
 import { Product } from '@/types';
 
@@ -126,6 +127,15 @@ const SearchPage = async (props: {
     colorSlug: 'all',
     inStockOnly: false,
   });
+
+  // Record real user searches so the super-admin dashboard can surface
+  // top queries and zero-result queries. Only log actual text searches.
+  if (q && q !== 'all' && q.trim() !== '') {
+    await logSearchQuery({
+      query: q,
+      resultsCount: products?.data?.length ?? 0,
+    });
+  }
 
   const categories = await getAllCategories();
 

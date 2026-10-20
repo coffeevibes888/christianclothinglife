@@ -10,31 +10,33 @@ export default function SuperAdminLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
-      <div className='flex flex-col min-h-screen bg-slate-950 text-slate-50'>
-        <div className='border-b border-slate-800 bg-slate-900/80 backdrop-blur w-full'>
-          <div className='flex items-center h-16 px-4 max-w-6xl mx-auto w-full'>
-            <Link href='/' className='w-22 flex items-center space-x-2'>
-              <Image
-                src='/images/christianlogo.png'
-                height={40}
-                width={40}
-                alt={APP_NAME}
-              />
-              <span className='text-sm font-semibold tracking-wide uppercase text-slate-100'>
-                Super Admin
-              </span>
-            </Link>
-            <div className='ml-auto items-center flex space-x-4'>
-              <Menu />
-            </div>
+    <div className='flex flex-col min-h-screen bg-blue-700 text-slate-50 overflow-x-hidden'>
+      <div className='border-b border-white/10 bg-blue-800/80 backdrop-blur w-full'>
+        <div className='flex items-center h-16 px-4 max-w-7xl mx-auto w-full gap-3'>
+          <Link
+            href='/'
+            className='flex items-center gap-2 min-w-0 flex-shrink-0'
+            aria-label='Home'
+          >
+            <Image
+              src='/images/christianlogo.png'
+              height={40}
+              width={40}
+              alt={APP_NAME}
+              className='h-10 w-10'
+            />
+            <span className='hidden sm:inline text-sm font-semibold tracking-wide uppercase text-white whitespace-nowrap'>
+              Super Admin
+            </span>
+          </Link>
+
+          <div className='ml-auto flex items-center gap-2 flex-shrink-0'>
+            <Menu />
           </div>
         </div>
-
-        <div className='flex-1 space-y-4 px-4 py-6 w-full max-w-6xl mx-auto'>
-          {children}
-        </div>
       </div>
-    </>
+
+      <div className='flex-1 min-w-0'>{children}</div>
+    </div>
   );
 }

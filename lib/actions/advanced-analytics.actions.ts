@@ -316,3 +316,86 @@ export async function getMarketingAttribution() {
     return null;
   }
 }
+
+// Click Analytics / Heatmap
+type ClickPoint = {
+  path: string;
+  x: number;
+  y: number;
+  dw: number;
+  dh: number;
+  vw: number;
+  vh: number;
+  el: string | null;
+  text: string | null;
+  href: string | null;
+  createdAt: Date | string;
+};
+
+export async function getClickAnalytics() {
+  try {
+    const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [totalClicks, pageGroups, rawClicks] = await Promise.all([
+      prisma.analyticsEvent.count({
+        where: { eventType: 'click', createdAt: { gte: last7Days } },
+      }),
+      prisma.analyticsEvent.groupBy({
+        by: ['path'],
+        where: { eventType: 'click', createdAt: { gte: last7Days } },
+        _count: { _all: true },
+      }),
+      prisma.analyticsEvent.findMany({
+        where: { eventType: 'click', createdAt: { gte: last7Days } },
+        orderBy: { createdAt: 'desc' },
+        take: 1000,
+        select: { path: true, eventData: true, createdAt: true },
+      }),
+    ]);
+
+    const topPages = pageGroups
+      .map((p) => ({ path: p.path, count: p._count._all }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    const clicks: ClickPoint[] = [];
+    const elementCounts: Record<string, number> = {};
+
+    for (const row of rawClicks) {
+      const d = (row.eventData ?? {}) as Record<string, unknown>;
+      const x = Number(d.x);
+      const y = Number(d.y);
+      const dw = Number(d.dw) || 0;
+      const dh = Number(d.dh) || 0;
+
+      const el = typeof d.el === 'string' ? d.el : null;
+      if (el) elementCounts[el] = (elementCounts[el] || 0) + 1;
+
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        clicks.push({
+          path: row.path,
+          x,
+          y,
+          dw,
+          dh,
+          vw: Number(d.vw) || 0,
+          vh: Number(d.vh) || 0,
+          el,
+          text: typeof d.text === 'string' ? d.text : null,
+          href: typeof d.href === 'string' ? d.href : null,
+          createdAt: row.createdAt,
+        });
+      }
+    }
+
+    const topElements = Object.entries(elementCounts)
+      .map(([el, count]) => ({ el, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    return { totalClicks, topPages, topElements, clicks };
+  } catch (error) {
+    console.error('Failed to fetch click analytics:', error);
+    return { totalClicks: 0, topPages: [], topElements: [], clicks: [] };
+  }
+}

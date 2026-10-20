@@ -12,6 +12,7 @@ import { PAGE_SIZE } from '../constants';
 import { Prisma } from '@prisma/client';
 import { sendPurchaseReceipt } from '@/email';
 import { notifyOwnerOfOrder } from '@/lib/notifications/order-notify';
+import { logCartEvent } from './tracking-events.actions';
 
 // ---------- Type Guard Helpers ---------- //
 function isShippingAddress(data: unknown): data is ShippingAddress {
@@ -59,6 +60,12 @@ export async function createOrder() {
     if (!user.paymentMethod) {
       return { success: false, message: 'No payment method', redirectTo: '/' };
     }
+
+    await logCartEvent({
+      eventType: 'checkout_started',
+      price: Number(cart.totalPrice),
+      quantity: (cart.items as CartItem[]).reduce((acc, i) => acc + i.qty, 0),
+    });
 
     const order = insertOrderSchema.parse({
       userId: user.id,

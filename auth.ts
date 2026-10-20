@@ -5,6 +5,8 @@ import { prisma } from '@/db/prisma';
 import { cookies } from 'next/headers';
 import { compare } from './lib/encrypt';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { extractGeo } from '@/lib/tracking/geo';
+import { logSecurityEvent } from '@/lib/security/security-logger';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -23,13 +25,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { type: 'email' },
         password: { type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (credentials == null) return null;
+
+        const email = credentials.email as string;
+        const headers = (request as Request | undefined)?.headers;
+        const geo = headers ? extractGeo(headers) : { ip: null, country: null };
+        const userAgent = headers?.get('user-agent') ?? null;
 
         // Find user in database
         const user = await prisma.user.findFirst({
           where: {
-            email: credentials.email as string,
+            email,
           },
         });
 
@@ -42,6 +49,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // If password is correct, return user
           if (isMatch) {
+            await logSecurityEvent({
+              eventType: 'login_success',
+              ip: geo.ip,
+              email,
+              userAgent,
+              country: geo.country,
+              details: { userId: user.id, role: user.role },
+            });
             return {
               id: user.id,
               name: user.name,
@@ -50,7 +65,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             };
           }
         }
-        // If user does not exist or password does not match return null
+
+        // User does not exist or password did not match — record the failure
+        // so the super-admin security view can surface brute-force attempts.
+        await logSecurityEvent({
+          eventType: 'failed_login',
+          ip: geo.ip,
+          email,
+          userAgent,
+          country: geo.country,
+          details: { reason: user ? 'bad_password' : 'unknown_user' },
+        });
         return null;
       },
     }),

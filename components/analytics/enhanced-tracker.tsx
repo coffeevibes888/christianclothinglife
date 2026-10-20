@@ -137,12 +137,69 @@ export function EnhancedTracker() {
       }
     };
 
+    // Track clicks (what + where) for the super-admin click map / heatmap
+    const describeElement = (el: HTMLElement) => {
+      const parts: string[] = [el.tagName.toLowerCase()];
+      if (el.id) parts.push(`#${el.id}`);
+      if (typeof el.className === "string" && el.className.trim()) {
+        parts.push(`.${el.className.trim().split(/\s+/).slice(0, 2).join(".")}`);
+      }
+      return parts.join("");
+    };
+
+    const trackClick = (event: MouseEvent) => {
+      const sessionCartId = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("sessionCartId="))
+        ?.split("=")[1];
+
+      if (!sessionCartId) return;
+
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const doc = document.documentElement;
+      const anchor = target.closest("a");
+
+      const payload = {
+        sessionCartId,
+        path: pathname,
+        eventType: "click",
+        screenWidth: window.innerWidth,
+        screenHeight: window.innerHeight,
+        eventData: {
+          x: Math.round(event.pageX),
+          y: Math.round(event.pageY),
+          vw: window.innerWidth,
+          vh: window.innerHeight,
+          dw: doc.scrollWidth,
+          dh: doc.scrollHeight,
+          el: describeElement(target),
+          text: (target.innerText || "").trim().slice(0, 60) || null,
+          href: anchor?.getAttribute("href") || null,
+        },
+      };
+
+      try {
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        }).catch(() => {});
+      } catch {
+        // ignore
+      }
+    };
+
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("beforeunload", trackTimeOnPage);
+    window.addEventListener("click", trackClick, { passive: true, capture: true });
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("beforeunload", trackTimeOnPage);
+      window.removeEventListener("click", trackClick, { capture: true });
     };
   }, [pathname, searchParams]);
 

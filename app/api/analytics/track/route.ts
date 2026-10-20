@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { trackPageView } from '@/lib/actions/analytics.actions';
+import { extractGeo } from '@/lib/tracking/geo';
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,22 +28,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing sessionCartId' }, { status: 400 });
     }
 
-    // Resolve client IP (works behind proxies like Vercel)
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    const ip = forwardedFor?.split(',')[0].trim() || '::1';
-
-    // Geo data is available on Vercel/Edge runtime
-    const geo = (request as unknown as { geo?: { country?: string; region?: string; city?: string } }).geo;
+    // Resolve client IP + approximate location from edge headers.
+    // NOTE: `request.geo` does not exist in App Router route handlers
+    // (removed in Next 15) — geo comes from x-vercel-ip-* / cf-* headers.
+    const { ip, country, region, city } = extractGeo(request.headers);
 
     await trackPageView({
       sessionCartId,
       path: path || '/',
       referrer: referrer || null,
-      country: geo?.country || null,
-      region: geo?.region || null,
-      city: geo?.city || null,
+      country,
+      region,
+      city,
       userAgent: request.headers.get('user-agent') || null,
-      ip,
+      ip: ip || '::1',
       eventType: eventType || 'pageview',
       eventData: eventData || null,
       timeOnPage: timeOnPage || null,

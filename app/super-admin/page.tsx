@@ -12,6 +12,7 @@ import {
   getDeviceAnalytics,
   getSecurityMetrics,
   getMarketingAttribution,
+  getClickAnalytics,
 } from '@/lib/actions/advanced-analytics.actions';
 import { convertToPlainObject } from '@/lib/utils';
 import SuperAdminDashboard from './super-admin-dashboard';
@@ -30,6 +31,10 @@ export default async function SuperAdminPage() {
     return redirect('/sign-in');
   }
 
+  if (session.user?.role !== 'superAdmin') {
+    return redirect('/unauthorized');
+  }
+
   const [
     summary,
     analytics,
@@ -41,6 +46,7 @@ export default async function SuperAdminPage() {
     deviceAnalytics,
     securityMetrics,
     marketingAttribution,
+    clickAnalytics,
   ] = await Promise.all([
     getOrderSummary(),
     getAnalyticsOverview(),
@@ -52,6 +58,7 @@ export default async function SuperAdminPage() {
     getDeviceAnalytics(),
     getSecurityMetrics(),
     getMarketingAttribution(),
+    getClickAnalytics(),
   ]);
 
   const serializedSummary = convertToPlainObject(summary);
@@ -63,6 +70,7 @@ export default async function SuperAdminPage() {
   const serializedDevice = convertToPlainObject(deviceAnalytics);
   const serializedSecurity = convertToPlainObject(securityMetrics);
   const serializedMarketing = convertToPlainObject(marketingAttribution);
+  const serializedClicks = convertToPlainObject(clickAnalytics);
 
   return (
     <SuperAdminDashboard
@@ -78,6 +86,7 @@ export default async function SuperAdminPage() {
       deviceAnalytics={serializedDevice}
       securityMetrics={serializedSecurity}
       marketingAttribution={serializedMarketing}
+      clickAnalytics={serializedClicks}
     />
   );
 }
