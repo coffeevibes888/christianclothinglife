@@ -175,19 +175,9 @@ export async function syncProductsFromPrintful() {
       const firstVariant = variants[0];
       const basePrice = firstVariant ? Number(firstVariant.retail_price) || 0 : 0;
 
-      // Use ONLY the generated "preview" mockups (the transparent ghost PNGs).
-      // Skip design-artwork files (front_large/back/etc.) and the white catalog
-      // garment photo so the gallery is clean transparent mockups per color.
-      const previewMockups = variants.flatMap((v) =>
-        (v.files || [])
-          .filter((f) => f.type === 'preview' && f.preview_url)
-          .map((f) => f.preview_url as string)
-      );
-      const images = Array.from(
-        new Set(
-          [sp.thumbnail_url, ...previewMockups].filter((u): u is string => Boolean(u))
-        )
-      ).slice(0, 12);
+      // Images are intentionally NOT pulled from Printful — the store owner
+      // uploads their own (transparent) product images. The sync never sets or
+      // overwrites product or variant images.
 
       const existing = await prisma.product.findFirst({
         where: {
@@ -209,7 +199,7 @@ export async function syncProductsFromPrintful() {
           data: {
             printfulProductId: String(sp.id),
             price: basePrice,
-            images: images.length ? images : existing.images,
+            // images intentionally omitted — never overwrite the owner's images.
             ...(keepCategory ? {} : { category: detectedCategory }),
           },
         });
@@ -223,7 +213,8 @@ export async function syncProductsFromPrintful() {
             category: detectedCategory,
             brand: 'Christian Clothing Life',
             description: sp.name,
-            images: images.length ? images : [],
+            // Start with no images; the owner uploads their own afterwards.
+            images: [],
             stock: 999,
             price: basePrice,
             printfulProductId: String(sp.id),
@@ -269,15 +260,8 @@ export async function syncProductsFromPrintful() {
           sizeId = sizeRec.id;
         }
 
-        // Each variant's image is its ghost "preview" mockup (per color) — never
-        // the design-artwork files or the white catalog garment photo. Fall back
-        // to the product's main mockup if a variant has no preview file.
-        const variantImages = (v.files || [])
-          .filter((f) => f.type === 'preview' && f.preview_url)
-          .map((f) => f.preview_url as string);
-        if (variantImages.length === 0 && sp.thumbnail_url) {
-          variantImages.push(sp.thumbnail_url);
-        }
+        // Variant images are NOT synced from Printful. Color/size image
+        // switching uses the owner's uploaded images (tagged by color).
         const price = Number(v.retail_price) || basePrice;
 
         if (v.sku) {
@@ -287,7 +271,6 @@ export async function syncProductsFromPrintful() {
               productId,
               colorId,
               sizeId,
-              images: variantImages,
               price,
               printfulExternalId: String(v.id),
             },
@@ -296,7 +279,7 @@ export async function syncProductsFromPrintful() {
               sku: v.sku,
               colorId,
               sizeId,
-              images: variantImages,
+              images: [],
               price,
               stock: 999,
               printfulExternalId: String(v.id),
@@ -309,7 +292,7 @@ export async function syncProductsFromPrintful() {
           if (existingVar) {
             await prisma.productVariant.update({
               where: { id: existingVar.id },
-              data: { productId, colorId, sizeId, images: variantImages, price },
+              data: { productId, colorId, sizeId, price },
             });
           } else {
             await prisma.productVariant.create({
@@ -317,7 +300,7 @@ export async function syncProductsFromPrintful() {
                 productId,
                 colorId,
                 sizeId,
-                images: variantImages,
+                images: [],
                 price,
                 stock: 999,
                 printfulExternalId: String(v.id),

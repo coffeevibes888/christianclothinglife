@@ -57,18 +57,14 @@ export default function ProductDetailClient({
     (colorSlug: string | undefined, colorName?: string) => {
       setActiveColorName(colorName);
 
-      // For products with real variants, the image is driven authoritatively by
-      // the selected variant (handleVariantChange) so it always matches the
-      // chosen color. Nothing else to do here.
-      if ((product.variants || []).length > 0) return;
-
-      // Manual products encode color via imageColors[] (index-aligned to
-      // images[]): show the image whose imageColor matches the chosen color.
       if (!colorName) {
         setActiveImage(baseImages[0] || '');
         return;
       }
 
+      // Switch to the owner's uploaded image tagged with this color (images[]
+      // tagged via imageColors[]). This drives color→image switching now that
+      // images come from the owner rather than Printful variants.
       const directMatch = imageColorMap.find(
         (entry) => entry.colorName && entry.colorName.toLowerCase() === colorName.toLowerCase()
       );
@@ -82,8 +78,9 @@ export default function ProductDetailClient({
         img.toLowerCase().replace(/\s+/g, '').includes(normalized)
       );
       if (byName) setActiveImage(byName);
+      // If nothing matches, the main image stays on the current selection.
     },
-    [allImages, baseImages, imageColorMap, product.variants]
+    [allImages, baseImages, imageColorMap]
   );
 
   // Handle variant change (color and/or size). The selected variant is the

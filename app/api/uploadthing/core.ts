@@ -6,7 +6,8 @@ const f = createUploadthing();
 
 export const ourFileRouter = {
   imageUploader: f({
-    image: { maxFileSize: '4MB', maxFileCount: 50 },
+    // Transparent product mockups (full-res PNGs) are often well over 4MB.
+    image: { maxFileSize: '16MB', maxFileCount: 50 },
   })
     .middleware(async () => {
       const session = await auth();

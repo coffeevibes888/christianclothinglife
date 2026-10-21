@@ -55,16 +55,22 @@ const ProductCard = ({ product }: { product: Product }) => {
       <CardHeader className="relative items-center p-0">
         <Link href={`/product/${product.slug}`} className="block w-full">
           <div className="relative aspect-square w-full overflow-hidden bg-transparent">
-            <Image
-              src={product.images[0]}
-              alt={product.name}
-              fill
-              priority={true}
-              sizes="250px"
-              className={`bg-transparent object-contain transition-all duration-500 group-hover:scale-105 ${
-                hasSecondImage ? 'group-hover:opacity-0' : ''
-              }`}
-            />
+            {product.images?.[0] ? (
+              <Image
+                src={product.images[0]}
+                alt={product.name}
+                fill
+                priority={true}
+                sizes="250px"
+                className={`bg-transparent object-contain transition-all duration-500 group-hover:scale-105 ${
+                  hasSecondImage ? 'group-hover:opacity-0' : ''
+                }`}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-slate-100 text-xs font-medium text-slate-400">
+                Image coming soon
+              </div>
+            )}
             {hasSecondImage && (
               <Image
                 src={product.images[1]}

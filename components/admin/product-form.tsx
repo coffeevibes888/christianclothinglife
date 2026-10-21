@@ -365,7 +365,7 @@ const ProductForm = ({
                       }}
                       content={{
                         label: 'Drag & drop images (or a whole folder) here, or click to select many at once',
-                        allowedContent: 'Up to 50 images, 4MB each — add them all in one go',
+                        allowedContent: 'Up to 50 images, 16MB each — add them all in one go',
                       }}
                       onClientUploadComplete={(res: { url: string }[]) =>
                         appendUploadedImages(res)
