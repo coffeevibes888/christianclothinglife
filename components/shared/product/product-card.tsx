@@ -54,14 +54,14 @@ const ProductCard = ({ product }: { product: Product }) => {
 
       <CardHeader className="relative items-center p-0">
         <Link href={`/product/${product.slug}`} className="block w-full">
-          <div className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+          <div className="relative aspect-square w-full overflow-hidden bg-transparent">
             <Image
               src={product.images[0]}
               alt={product.name}
               fill
               priority={true}
               sizes="250px"
-              className={`object-cover transition-all duration-500 group-hover:scale-105 ${
+              className={`bg-transparent object-contain transition-all duration-500 group-hover:scale-105 ${
                 hasSecondImage ? 'group-hover:opacity-0' : ''
               }`}
             />
@@ -71,7 +71,7 @@ const ProductCard = ({ product }: { product: Product }) => {
                 alt={product.name}
                 fill
                 sizes="250px"
-                className="absolute inset-0 scale-105 object-cover opacity-0 transition-all duration-500 group-hover:scale-110 group-hover:opacity-100"
+                className="absolute inset-0 scale-105 bg-transparent object-contain opacity-0 transition-all duration-500 group-hover:scale-110 group-hover:opacity-100"
               />
             )}
 

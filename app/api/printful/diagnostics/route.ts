@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { fetchPrintfulStores, fetchPrintfulStoreProducts } from '@/lib/printful';
+import {
+  fetchPrintfulStores,
+  fetchPrintfulStoreProducts,
+  fetchPrintfulStoreProduct,
+} from '@/lib/printful';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +34,30 @@ export async function GET() {
     fetchPrintfulStoreProducts(),
   ]);
 
+  // Pull the raw image URLs for the first product so we can see exactly what
+  // Printful returns (transparent PNG mockup vs flattened white JPG).
+  let firstProductImages: unknown = null;
+  if (productsResult.status === 'fulfilled' && productsResult.value[0]) {
+    try {
+      const detail = await fetchPrintfulStoreProduct(productsResult.value[0].id);
+      firstProductImages = {
+        productName: detail.sync_product.name,
+        sync_product_thumbnail: detail.sync_product.thumbnail_url,
+        variants: (detail.sync_variants || []).slice(0, 2).map((v) => ({
+          name: v.name,
+          catalog_product_image: v.product?.image,
+          files: (v.files || []).map((f) => ({
+            type: f.type,
+            preview_url: f.preview_url,
+            thumbnail_url: f.thumbnail_url,
+          })),
+        })),
+      };
+    } catch (err) {
+      firstProductImages = { error: (err as Error)?.message };
+    }
+  }
+
   return NextResponse.json({
     success: true,
     configuredStoreId,
@@ -41,5 +69,6 @@ export async function GET() {
       productsResult.status === 'fulfilled'
         ? productsResult.value.map((p) => ({ id: p.id, name: p.name, variants: p.variants }))
         : { error: (productsResult.reason as Error)?.message },
+    firstProductImages,
   });
 }
