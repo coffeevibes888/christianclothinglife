@@ -221,6 +221,22 @@ export function productSchema(product: ProductSchemaInput) {
   return schema;
 }
 
+/** FAQPage schema from a list of question/answer pairs. */
+export function faqSchema(items: { question: string; answer: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  };
+}
+
 type ArticleSchemaInput = {
   title: string;
   slug: string;

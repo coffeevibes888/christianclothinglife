@@ -22,6 +22,7 @@ const companyLinks = [
 ];
 
 const supportLinks = [
+  { href: '/faq', label: 'FAQ' },
   { href: '/cart', label: 'Your Cart' },
   { href: '/user/orders', label: 'Order History' },
   { href: '/contact', label: 'Shipping & Returns' },

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Loader, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { APP_NAME } from "@/lib/constants";
 
 interface ChatBoxProps {
   onClose?: () => void;
@@ -420,7 +421,7 @@ export function SocialChatBox({ onClose }: ChatBoxProps) {
             <div className="flex h-full items-center justify-center text-center text-[12px] text-slate-500 dark:text-slate-400 px-4">
               <div>
                 <p className="mb-1 font-medium">
-                  Welcome to RockEnMyVibe Messenger
+                  Welcome to {APP_NAME} Messenger
                 </p>
                 <p>
                   Select a friend or coworker on the left to start a private

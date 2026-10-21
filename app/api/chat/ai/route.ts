@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/prisma';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { APP_NAME } from '@/lib/constants';
+import { FAQS, findFaqAnswer } from '@/lib/faq';
 
 interface ChatRequest {
   message: string;
@@ -24,6 +26,12 @@ const SIMULATED_RESPONSES: Record<string, string> = {
 };
 
 function getSimulatedResponse(message: string): string {
+  // Prefer a precise FAQ answer when the message matches our knowledge base.
+  const faq = findFaqAnswer(message);
+  if (faq) {
+    return faq.answer;
+  }
+
   const lowerMessage = message.toLowerCase();
 
   for (const [key, response] of Object.entries(SIMULATED_RESPONSES)) {
@@ -63,7 +71,11 @@ async function callOpenAI(message: string): Promise<string | null> {
           {
             role: 'system',
             content:
-              'You are a helpful customer support assistant for Rocken My Vibe, a fashion e-commerce store. Be friendly, concise, and helpful. Keep responses under 150 words.',
+              `You are Grace, the customer support assistant for ${APP_NAME}, a faith-based Christian clothing store. ` +
+              'Be warm, friendly, and concise, and keep answers under 150 words. ' +
+              'Use the following store FAQ as your source of truth; if a question falls outside it, ' +
+              'help where you can and invite the customer to use the Contact page for anything you cannot resolve.\n\n' +
+              FAQS.map((f) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n'),
           },
           {
             role: 'user',
@@ -148,7 +160,7 @@ export async function POST(request: NextRequest) {
         {
           threadId: thread.id,
           senderUserId: null,
-          senderName: 'AI Assistant',
+          senderName: 'Grace',
           senderEmail: null,
           content: aiResponse,
           role: 'ai',
