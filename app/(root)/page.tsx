@@ -5,7 +5,8 @@ import DealCountdown from '@/components/deal-countdown';
 import Hero from '@/components/hero/hero';
 import ValueProps from '@/components/home/value-props';
 // import CategoryTiles from '@/components/home/category-tiles';
-import CustomerReviews from '@/components/home/customer-reviews';
+// Temporarily disabled — re-enable to show customer reviews on the homepage.
+// import CustomerReviews from '@/components/home/customer-reviews';
 import HomeContactCard from '@/components/home/home-contact-card';
 import CtaBand from '@/components/home/cta-band';
 import type { Product } from '@/types';
@@ -73,7 +74,8 @@ const Homepage = async () => {
   return (
     <>
       <Hero />
-      <CustomerReviews />
+      {/* Temporarily hidden — re-enable to show customer reviews on the homepage. */}
+      {/* <CustomerReviews /> */}
      
       {/* <CategoryTiles /> */}
 

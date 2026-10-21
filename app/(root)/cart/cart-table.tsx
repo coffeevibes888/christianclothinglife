@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useTransition } from 'react';
 import { addItemToCart, removeItemFromCart } from '@/lib/actions/cart.actions';
-import { ArrowRight, Loader, Minus, Pencil, Plus } from 'lucide-react';
+import { ArrowRight, Loader, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Cart, CartItem } from '@/types';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -82,6 +82,40 @@ function RemoveButton({ item }: { item: CartItem }) {
   );
 }
 
+// Removes the entire line from the cart in one click (any quantity), and works
+// even if the underlying product was deleted/re-synced.
+function RemoveLineButton({ item }: { item: CartItem }) {
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+  return (
+    <button
+      type='button'
+      disabled={isPending}
+      onClick={() =>
+        startTransition(async () => {
+          const res = await removeItemFromCart(
+            item.productId,
+            item.variantId as string | undefined,
+            true
+          );
+          toast({
+            variant: res.success ? 'default' : 'destructive',
+            description: res.message,
+          });
+        })
+      }
+      className='inline-flex items-center gap-1 text-xs font-medium text-red-600 transition-colors hover:text-red-700 disabled:opacity-60'
+    >
+      {isPending ? (
+        <Loader className='h-3 w-3 animate-spin' />
+      ) : (
+        <Trash2 className='h-3 w-3' />
+      )}
+      Remove
+    </button>
+  );
+}
+
 const CartTable = ({ cart }: { cart?: Cart }) => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -136,13 +170,16 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
                         <span>{item.qty}</span>
                         <AddButton item={item} />
                       </div>
-                      <Link
-                        href={`/product/${item.slug}`}
-                        className='inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-900 hover:text-slate-900'
-                      >
-                        <Pencil className='h-3 w-3' />
-                        Edit color / size
-                      </Link>
+                      <div className='flex items-center gap-3'>
+                        <Link
+                          href={`/product/${item.slug}`}
+                          className='inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-900 hover:text-slate-900'
+                        >
+                          <Pencil className='h-3 w-3' />
+                          Edit color / size
+                        </Link>
+                        <RemoveLineButton item={item} />
+                      </div>
                     </TableCell>
                     <TableCell className='text-right'>${item.price}</TableCell>
                   </TableRow>

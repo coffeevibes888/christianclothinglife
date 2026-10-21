@@ -126,33 +126,42 @@ const DealCountdown = () => {
         </div>
       </div>
 
-      {/* Deal images */}
+      {/* Deal images — overlapping "social" pile. Cards fan out and overlap;
+          hovering one brings it to the front and dims the others. */}
       <div className='relative mt-4 md:mt-8'>
         <div className='pointer-events-none absolute inset-0 -z-10 flex items-center justify-center'>
           <div className='h-64 w-64 rounded-full bg-violet-300/40 blur-3xl' />
         </div>
 
-        <div className='mx-auto grid max-w-md grid-cols-2 gap-4'>
-          {photos.map((photo, index) => (
-            <div
-              key={photo.id}
-              className={`group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 transition duration-300 hover:-translate-y-1 ${
-                index === 0 ? 'col-span-2 aspect-[16/10]' : 'aspect-square'
-              }`}
-            >
-              <Image
-                src={photo.src}
-                alt={photo.label}
-                fill
-                sizes='(min-width: 768px) 448px, 100vw'
-                className='object-cover transition duration-500 group-hover:scale-105'
-              />
-              <div className='absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/20 to-transparent px-3 pb-2 pt-6 text-[11px] text-white'>
-                <span className='font-medium uppercase tracking-[0.15em]'>{photo.label}</span>
-                <span className='text-[10px] text-violet-200'>Limited Time</span>
+        <div className='group/pile relative mx-auto h-[380px] w-full max-w-md md:h-[440px]'>
+          {photos.map((photo, index) => {
+            const layouts = [
+              // Spotlight (two shirts) — largest, sits behind and slightly tilted.
+              'top-0 left-[12%] w-[66%] h-[58%] rotate-[-5deg] z-20',
+              'top-[30%] left-0 w-[54%] h-[54%] rotate-[7deg] z-10',
+              'top-[36%] left-[44%] w-[56%] h-[56%] rotate-[-9deg] z-10',
+            ];
+            const layout = layouts[index] ?? 'top-0 left-0 w-[60%] h-[60%] z-10';
+
+            return (
+              <div
+                key={photo.id}
+                className={`group/card absolute cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/15 transition-all duration-300 ease-out hover:z-30 hover:-translate-y-2 hover:rotate-0 hover:scale-105 group-hover/pile:opacity-70 hover:!opacity-100 ${layout}`}
+              >
+                <Image
+                  src={photo.src}
+                  alt={photo.label}
+                  fill
+                  sizes='(min-width: 768px) 288px, 60vw'
+                  className='object-contain p-2'
+                />
+                <div className='absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/20 to-transparent px-3 pb-2 pt-6 text-[10px] text-white'>
+                  <span className='font-medium uppercase tracking-[0.12em]'>{photo.label}</span>
+                  <span className='text-[9px] text-violet-200'>Limited Time</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

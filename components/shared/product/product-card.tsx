@@ -107,14 +107,9 @@ const ProductCard = ({ product }: { product: Product }) => {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-1.5 p-4">
-        {product.brand && (
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-600">
-            {product.brand}
-          </div>
-        )}
-
         <Link href={`/product/${product.slug}`}>
-          <h2 className="line-clamp-2 text-sm font-semibold text-slate-900 transition-colors group-hover:text-indigo-600">
+          {/* Reserve two lines so short and long names keep cards the same height */}
+          <h2 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-indigo-600">
             {product.name}
           </h2>
         </Link>

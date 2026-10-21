@@ -346,17 +346,21 @@ export async function getMyCart() {
   });
 }
 
-export async function removeItemFromCart(productId: string, variantId?: string) {
+export async function removeItemFromCart(
+  productId: string,
+  variantId?: string,
+  removeEntireLine = false
+) {
   try {
     // Check for cart cookie
     const sessionCartId = (await cookies()).get('sessionCartId')?.value;
     if (!sessionCartId) throw new Error('Cart session not found');
 
-    // Get Product
+    // The product may no longer exist (deleted or re-synced to a new id). That
+    // must NOT block removing the stale item — look it up but don't require it.
     const product = await prisma.product.findFirst({
       where: { id: productId },
     });
-    if (!product) throw new Error('Product not found');
 
     // Get user cart
     const cart = await getMyCart();
@@ -368,14 +372,13 @@ export async function removeItemFromCart(productId: string, variantId?: string) 
     );
     if (!exist) throw new Error('Item not found');
 
-    // Check if only one in qty
-    if (exist.qty === 1) {
-      // Remove from cart (filter by productId+variantId if variant provided)
+    if (removeEntireLine || exist.qty === 1) {
+      // Remove the whole line (filter by productId + variantId when provided)
       cart.items = (cart.items as CartItem[]).filter(
-        (x) => !(x.productId === exist.productId && (variantId ? x.variantId === variantId : true))
+        (x) => !(x.productId === productId && (variantId ? x.variantId === variantId : true))
       );
     } else {
-      // Decrease qty
+      // Decrease qty by one
       (cart.items as CartItem[]).find(
         (x) => x.productId === productId && (variantId ? x.variantId === variantId : true)
       )!.qty = exist.qty - 1;
@@ -399,11 +402,15 @@ export async function removeItemFromCart(productId: string, variantId?: string) 
       variantId: variantId ?? null,
     });
 
-    revalidatePath(`/product/${product.slug}`);
+    if (product?.slug) revalidatePath(`/product/${product.slug}`);
+    revalidatePath('/cart');
 
     return {
       success: true,
-      message: `${product.name} was removed from cart`,
+      message:
+        removeEntireLine || exist.qty === 1
+          ? `${product?.name ?? 'Item'} removed from cart`
+          : `${product?.name ?? 'Item'} updated in cart`,
     };
   } catch (error) {
     return { success: false, message: formatError(error) };
