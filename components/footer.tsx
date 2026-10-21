@@ -3,15 +3,17 @@ import Image from 'next/image';
 import { APP_NAME } from '@/lib/constants';
 import { Instagram, Facebook, Mail } from 'lucide-react';
 
-const shopLinks = [
-  { href: '/search?category=T-Shirts', label: 'T-Shirts' },
-  { href: '/search?category=Hoodies', label: 'Hoodies' },
-  { href: '/search?category=Coffee Mugs', label: 'Coffee Mugs' },
-  { href: '/search?category=Seasonal', label: 'Seasonal' },
-  { href: '/search?category=Christian Humor', label: 'Christian Humor' },
-  { href: '/search?category=Positive Vibes', label: 'Positive Vibes' },
-  { href: '/search', label: 'All Products' },
-];
+// Shop column intentionally hidden for now — uncomment the array and the
+// <FooterColumn title='Shop' .../> below to bring it back.
+// const shopLinks = [
+//   { href: '/search?category=T-Shirts', label: 'T-Shirts' },
+//   { href: '/search?category=Hoodies', label: 'Hoodies' },
+//   { href: '/search?category=Coffee Mugs', label: 'Coffee Mugs' },
+//   { href: '/search?category=Seasonal', label: 'Seasonal' },
+//   { href: '/search?category=Christian Humor', label: 'Christian Humor' },
+//   { href: '/search?category=Positive Vibes', label: 'Positive Vibes' },
+//   { href: '/search', label: 'All Products' },
+// ];
 
 const companyLinks = [
   { href: '/about', label: 'About Us' },
@@ -29,9 +31,9 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className='mt-20 border-t border-sky-200/70 bg-sky-100/60'>
-      <div className='mx-auto max-w-7xl px-6 py-14 md:px-8'>
-        <div className='grid gap-10 md:grid-cols-2 lg:grid-cols-5'>
+    <footer className='mt-12 border-t border-sky-200/70 bg-sky-100/60'>
+      <div className='mx-auto max-w-7xl px-6 py-10 md:px-8'>
+        <div className='grid gap-8 md:grid-cols-2 lg:grid-cols-4'>
           {/* Brand */}
           <div className='lg:col-span-2'>
             <Link href='/' className='inline-flex items-center'>
@@ -61,13 +63,16 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Link columns */}
-          <FooterColumn title='Shop' links={shopLinks} />
-          <FooterColumn title='Company' links={companyLinks} />
-          <FooterColumn title='Support' links={supportLinks} />
+          {/* Link columns — stay side-by-side (rows) even on mobile to keep the
+              footer compact instead of one tall stacked column. */}
+          <div className='grid grid-cols-2 gap-8 md:col-span-2'>
+            <FooterColumn title='Company' links={companyLinks} />
+            <FooterColumn title='Support' links={supportLinks} />
+            {/* <FooterColumn title='Shop' links={shopLinks} /> */}
+          </div>
         </div>
 
-        <div className='mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-6 text-sm text-slate-500 sm:flex-row'>
+        <div className='mt-8 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-6 text-sm text-slate-500 sm:flex-row'>
           <p>
             &copy; {currentYear} {APP_NAME}. All rights reserved.
           </p>
@@ -90,7 +95,7 @@ const FooterColumn = ({
 }) => (
   <div>
     <h3 className='text-sm font-semibold uppercase tracking-wide text-slate-900'>{title}</h3>
-    <ul className='mt-4 space-y-2.5'>
+    <ul className='mt-3 space-y-2'>
       {links.map((link) => (
         <li key={`${title}-${link.label}`}>
           <Link

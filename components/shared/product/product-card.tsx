@@ -46,7 +46,7 @@ const ProductCard = ({ product }: { product: Product }) => {
   const lowStock = product.stock > 0 && product.stock < 5;
 
   return (
-    <Card className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-lg shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1.5 hover:border-transparent hover:shadow-2xl hover:shadow-indigo-500/20">
+    <Card className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-transparent p-0 shadow-lg shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1.5 hover:border-transparent hover:shadow-2xl hover:shadow-indigo-500/20">
       {/* Always-on gradient accent */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-blue-600 via-violet-600 to-fuchsia-600" />
       {/* Gradient ring on hover */}
@@ -106,7 +106,7 @@ const ProductCard = ({ product }: { product: Product }) => {
         )}
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-1.5 p-4">
+      <CardContent className="flex flex-col gap-1.5 bg-white p-4">
         <Link href={`/product/${product.slug}`}>
           {/* Reserve two lines so short and long names keep cards the same height */}
           <h2 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-indigo-600">
