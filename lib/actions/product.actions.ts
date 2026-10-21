@@ -175,17 +175,19 @@ export async function syncProductsFromPrintful() {
       const firstVariant = variants[0];
       const basePrice = firstVariant ? Number(firstVariant.retail_price) || 0 : 0;
 
+      // Use ONLY the generated "preview" mockups (the transparent ghost PNGs).
+      // Skip design-artwork files (front_large/back/etc.) and the white catalog
+      // garment photo so the gallery is clean transparent mockups per color.
+      const previewMockups = variants.flatMap((v) =>
+        (v.files || [])
+          .filter((f) => f.type === 'preview' && f.preview_url)
+          .map((f) => f.preview_url as string)
+      );
       const images = Array.from(
         new Set(
-          [
-            sp.thumbnail_url,
-            ...variants.flatMap((v) =>
-              (v.files || []).map((f) => f.preview_url).filter((u): u is string => Boolean(u))
-            ),
-            ...variants.map((v) => v.product?.image).filter((u): u is string => Boolean(u)),
-          ].filter((u): u is string => Boolean(u))
+          [sp.thumbnail_url, ...previewMockups].filter((u): u is string => Boolean(u))
         )
-      ).slice(0, 10);
+      ).slice(0, 12);
 
       const existing = await prisma.product.findFirst({
         where: {
@@ -267,21 +269,14 @@ export async function syncProductsFromPrintful() {
           sizeId = sizeRec.id;
         }
 
-        // Prefer the generated garment mockup (Printful "preview" file) so the
-        // stored image matches the variant's color; then any other previews,
-        // then the catalog garment image as a last resort.
-        const previewFiles = (v.files || []).filter(
-          (f) => f.type === 'preview' && f.preview_url
-        );
-        const otherFiles = (v.files || []).filter(
-          (f) => f.type !== 'preview' && f.preview_url
-        );
-        const variantImages = [
-          ...previewFiles.map((f) => f.preview_url as string),
-          ...otherFiles.map((f) => f.preview_url as string),
-        ];
-        if (variantImages.length === 0 && v.product?.image) {
-          variantImages.push(v.product.image);
+        // Each variant's image is its ghost "preview" mockup (per color) — never
+        // the design-artwork files or the white catalog garment photo. Fall back
+        // to the product's main mockup if a variant has no preview file.
+        const variantImages = (v.files || [])
+          .filter((f) => f.type === 'preview' && f.preview_url)
+          .map((f) => f.preview_url as string);
+        if (variantImages.length === 0 && sp.thumbnail_url) {
+          variantImages.push(sp.thumbnail_url);
         }
         const price = Number(v.retail_price) || basePrice;
 

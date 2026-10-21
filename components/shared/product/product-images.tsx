@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type MouseEvent } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +21,18 @@ const ProductImages = ({
   const baseAlt = productName || 'Product';
   const mainAlt = colorName ? `${baseAlt} — ${colorName}` : baseAlt;
 
+  // Hover-to-zoom: magnify the main image toward the cursor so shoppers can
+  // inspect the design detail. Pointer-only (ignored on touch devices).
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [origin, setOrigin] = useState('50% 50%');
+
+  const handleZoomMove = (e: MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setOrigin(`${x}% ${y}%`);
+  };
+
   useEffect(() => {
     const activeIndex = images.findIndex(img => img === activeImage);
     if (activeIndex !== -1) {
@@ -39,16 +51,25 @@ const ProductImages = ({
 
   return (
     <div className='space-y-4'>
-      <div className='relative bg-transparent'>
+      <div
+        className='group relative cursor-zoom-in overflow-hidden bg-transparent'
+        onMouseEnter={() => setIsZoomed(true)}
+        onMouseLeave={() => setIsZoomed(false)}
+        onMouseMove={handleZoomMove}
+      >
         <Image
           src={activeImage || images[current]}
           alt={mainAlt}
           width={1000}
           height={1000}
-          className='h-auto max-h-[520px] w-full bg-transparent object-contain object-center'
+          className='h-auto max-h-[520px] w-full bg-transparent object-contain object-center transition-transform duration-200 ease-out'
+          style={{
+            transform: isZoomed ? 'scale(2.2)' : 'scale(1)',
+            transformOrigin: origin,
+          }}
         />
         {colorName && (
-          <div className='absolute top-4 left-4 bg-black/70 text-white px-4 py-2 rounded-md backdrop-blur-sm'>
+          <div className='pointer-events-none absolute top-4 left-4 bg-black/70 text-white px-4 py-2 rounded-md backdrop-blur-sm'>
             <span className='text-sm font-medium'>{colorName}</span>
           </div>
         )}
