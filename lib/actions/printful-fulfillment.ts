@@ -82,17 +82,26 @@ export async function fulfillOrderWithPrintful(orderId: string) {
       email: order.user?.email || undefined,
     };
 
+    // Draft mode for testing: set PRINTFUL_CONFIRM_ORDERS=false to create
+    // orders as unconfirmed drafts in Printful (visible + fully costed, but NOT
+    // sent to production and NOT charged to your billing method). Leave unset or
+    // "true" in production so paid orders are submitted for fulfillment.
+    const confirm = process.env.PRINTFUL_CONFIRM_ORDERS !== 'false';
+
     const result = await createPrintfulOrder({
       externalId: order.id,
       recipient,
       items,
-      confirm: true,
+      confirm,
     });
 
     return {
       success: true,
-      message: `Printful order #${result.id} created (${result.status}).`,
+      message: confirm
+        ? `Printful order #${result.id} submitted for fulfillment (${result.status}).`
+        : `Printful DRAFT order #${result.id} created (${result.status}) — not charged or produced. Review it in your Printful dashboard.`,
       printfulOrderId: result.id,
+      confirmed: confirm,
     };
   } catch (error) {
     return { success: false, message: formatError(error) };

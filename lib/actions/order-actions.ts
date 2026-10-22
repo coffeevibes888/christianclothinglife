@@ -349,9 +349,11 @@ export async function updateOrderToPaid({
 
   // Push to Printful for print-on-demand fulfillment when enabled. Non-blocking:
   // a Printful failure must never break the paid-order flow.
-  fulfillOrderWithPrintful(orderId).catch((error) => {
-    console.error('Printful fulfillment error:', error);
-  });
+  fulfillOrderWithPrintful(orderId)
+    .then((r) => console.log('[Printful] order fulfillment:', r))
+    .catch((error) => {
+      console.error('[Printful] order fulfillment error:', error);
+    });
 }
 
 // Get user's orders

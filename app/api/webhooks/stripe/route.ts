@@ -26,7 +26,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'event is not charge.succeeded' });
   }
 
-  const { object } = event.data;
+  const object = event.data.object as Stripe.Charge;
+
+  // Metadata lives on the PaymentIntent, not the Charge. A Charge created by a
+  // PaymentIntent does NOT inherit the PI's metadata, so when the charge has no
+  // cartId/orderId we recover it by loading the parent PaymentIntent. Without
+  // this, guest checkouts silently create no order (webhook returns 200).
+  let metadata: Record<string, string> = (object.metadata as Record<string, string>) || {};
+  if (!metadata.orderId && !metadata.cartId && object.payment_intent) {
+    try {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+      const piId =
+        typeof object.payment_intent === 'string'
+          ? object.payment_intent
+          : object.payment_intent.id;
+      const pi = await stripe.paymentIntents.retrieve(piId);
+      metadata = (pi.metadata as Record<string, string>) || {};
+    } catch (err) {
+      console.error('Failed to load PaymentIntent metadata from charge:', err);
+    }
+  }
 
   // Idempotency: if an order already records this charge, do nothing. This
   // prevents duplicate orders when Stripe retries or double-delivers an event.
@@ -42,10 +61,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Legacy flow: an order already exists, just mark it paid.
-  if (object.metadata.orderId) {
+  if (metadata.orderId) {
     try {
       await updateOrderToPaid({
-        orderId: object.metadata.orderId,
+        orderId: metadata.orderId,
         paymentResult: {
           id: object.id,
           status: 'COMPLETED',
@@ -63,9 +82,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Guest checkout flow: create the order from the cart.
-  if (object.metadata.cartId) {
+  if (metadata.cartId) {
     const cart = await prisma.cart.findUnique({
-      where: { id: object.metadata.cartId },
+      where: { id: metadata.cartId },
     });
 
     if (!cart || !cart.items || (cart.items as unknown[]).length === 0) {
@@ -74,9 +93,9 @@ export async function POST(req: NextRequest) {
     }
 
     const cartItems = cart.items as Array<Record<string, unknown>>;
-    const guestAddress = JSON.parse(object.metadata.guestAddress || '{}');
+    const guestAddress = JSON.parse(metadata.guestAddress || '{}');
     const shippingAddress = shippingAddressSchema.parse({
-      fullName: object.metadata.guestName || 'Guest',
+      fullName: metadata.guestName || 'Guest',
       streetAddress: guestAddress.streetAddress || '',
       city: guestAddress.city || '',
       state: guestAddress.state || '',
@@ -85,12 +104,12 @@ export async function POST(req: NextRequest) {
     });
 
     const guestUser = await prisma.user.upsert({
-      where: { email: object.metadata.guestEmail },
-      update: { phoneNumber: object.metadata.guestPhone },
+      where: { email: metadata.guestEmail },
+      update: { phoneNumber: metadata.guestPhone },
       create: {
-        email: object.metadata.guestEmail,
-        name: object.metadata.guestName || 'Guest',
-        phoneNumber: object.metadata.guestPhone,
+        email: metadata.guestEmail,
+        name: metadata.guestName || 'Guest',
+        phoneNumber: metadata.guestPhone,
       },
     });
 
@@ -173,10 +192,11 @@ export async function POST(req: NextRequest) {
       return created;
     });
 
-    // Push to Printful if enabled (non-blocking).
-    fulfillOrderWithPrintful(order.id).catch((err) =>
-      console.error('Printful fulfillment (guest) error:', err)
-    );
+    // Push to Printful if enabled (non-blocking). Log the result either way so
+    // "skipped/disabled/no-linked-items" outcomes are visible, not just throws.
+    fulfillOrderWithPrintful(order.id)
+      .then((r) => console.log('[Printful] guest-order fulfillment:', r))
+      .catch((err) => console.error('[Printful] guest-order fulfillment error:', err));
 
     return NextResponse.json({
       message: 'Order created successfully from guest checkout',
