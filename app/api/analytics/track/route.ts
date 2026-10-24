@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { trackPageView } from '@/lib/actions/analytics.actions';
 import { extractGeo } from '@/lib/tracking/geo';
+import { auth } from '@/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,8 +34,19 @@ export async function POST(request: NextRequest) {
     // (removed in Next 15) — geo comes from x-vercel-ip-* / cf-* headers.
     const { ip, country, region, city } = extractGeo(request.headers);
 
+    // Attach the authenticated user id so the dashboard can exclude the owner's
+    // and staff's own activity. Anonymous visitors stay null.
+    let userId: string | undefined;
+    try {
+      const session = await auth();
+      userId = (session?.user?.id as string | undefined) ?? undefined;
+    } catch {
+      userId = undefined;
+    }
+
     await trackPageView({
       sessionCartId,
+      userId,
       path: path || '/',
       referrer: referrer || null,
       country,

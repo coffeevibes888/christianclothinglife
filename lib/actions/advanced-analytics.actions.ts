@@ -1,12 +1,14 @@
 'use server';
 
 import { prisma } from '@/db/prisma';
+import { getExcludedAnalyticsUserIds, excludeUsersWhere } from './analytics-shared';
 
 // User Behavior Analytics
 export async function getBehaviorMetrics() {
   try {
     const now = new Date();
     const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const notStaff = excludeUsersWhere(await getExcludedAnalyticsUserIds());
 
     // Average time on page
     const timeOnPageData = await prisma.analyticsEvent.aggregate({
@@ -14,6 +16,7 @@ export async function getBehaviorMetrics() {
         eventType: { in: ['exit', 'pageview'] },
         timeOnPage: { not: null },
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _avg: { timeOnPage: true },
     });
@@ -25,6 +28,7 @@ export async function getBehaviorMetrics() {
         eventType: 'scroll',
         scrollDepth: { not: null },
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _count: true,
     });
@@ -35,6 +39,7 @@ export async function getBehaviorMetrics() {
       where: {
         eventType: 'pageview',
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _count: true,
     });
@@ -47,6 +52,7 @@ export async function getBehaviorMetrics() {
       where: {
         eventType: 'exit',
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _count: true,
       orderBy: { _count: { path: 'desc' } },
@@ -69,10 +75,11 @@ export async function getBehaviorMetrics() {
 export async function getProductAnalytics() {
   try {
     const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const notStaff = excludeUsersWhere(await getExcludedAnalyticsUserIds());
 
     const topViewedProducts = await prisma.productView.groupBy({
       by: ['productId'],
-      where: { createdAt: { gte: last7Days } },
+      where: { createdAt: { gte: last7Days }, ...notStaff },
       _count: true,
       _avg: { duration: true },
       orderBy: { _count: { productId: 'desc' } },
@@ -107,10 +114,11 @@ export async function getProductAnalytics() {
 export async function getCartAnalytics() {
   try {
     const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const notStaff = excludeUsersWhere(await getExcludedAnalyticsUserIds());
 
     const cartEvents = await prisma.cartEvent.groupBy({
       by: ['eventType'],
-      where: { createdAt: { gte: last7Days } },
+      where: { createdAt: { gte: last7Days }, ...notStaff },
       _count: true,
     });
 
@@ -118,6 +126,7 @@ export async function getCartAnalytics() {
       where: {
         eventType: 'abandon',
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -128,6 +137,7 @@ export async function getCartAnalytics() {
       where: {
         eventType: 'checkout_started',
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _count: true,
     });
@@ -147,10 +157,11 @@ export async function getCartAnalytics() {
 export async function getSearchAnalytics() {
   try {
     const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const notStaff = excludeUsersWhere(await getExcludedAnalyticsUserIds());
 
     const topSearches = await prisma.searchQuery.groupBy({
       by: ['query'],
-      where: { createdAt: { gte: last7Days } },
+      where: { createdAt: { gte: last7Days }, ...notStaff },
       _count: true,
       _avg: { resultsCount: true },
       orderBy: { _count: { query: 'desc' } },
@@ -162,6 +173,7 @@ export async function getSearchAnalytics() {
       where: {
         resultsCount: 0,
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _count: true,
       orderBy: { _count: { query: 'desc' } },
@@ -182,12 +194,14 @@ export async function getSearchAnalytics() {
 export async function getDeviceAnalytics() {
   try {
     const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const notStaff = excludeUsersWhere(await getExcludedAnalyticsUserIds());
 
     const deviceBreakdown = await prisma.analyticsEvent.groupBy({
       by: ['deviceType'],
       where: {
         deviceType: { not: null },
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _count: true,
     });
@@ -198,6 +212,7 @@ export async function getDeviceAnalytics() {
         screenWidth: { not: null },
         screenHeight: { not: null },
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _count: true,
       orderBy: { _count: { screenWidth: 'desc' } },
@@ -209,6 +224,7 @@ export async function getDeviceAnalytics() {
       where: {
         browserLang: { not: null },
         createdAt: { gte: last7Days },
+        ...notStaff,
       },
       _count: true,
       orderBy: { _count: { browserLang: 'desc' } },
@@ -272,12 +288,14 @@ export async function getSecurityMetrics() {
 export async function getMarketingAttribution() {
   try {
     const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const notStaff = excludeUsersWhere(await getExcludedAnalyticsUserIds());
 
     const utmSources = await prisma.analyticsEvent.groupBy({
       by: ['utmSource'],
       where: {
         utmSource: { not: null },
         createdAt: { gte: last30Days },
+        ...notStaff,
       },
       _count: true,
       orderBy: { _count: { utmSource: 'desc' } },
@@ -288,6 +306,7 @@ export async function getMarketingAttribution() {
       where: {
         utmCampaign: { not: null },
         createdAt: { gte: last30Days },
+        ...notStaff,
       },
       _count: true,
       orderBy: { _count: { utmCampaign: 'desc' } },
@@ -300,6 +319,7 @@ export async function getMarketingAttribution() {
         referrer: { not: null },
         NOT: { referrer: '' },
         createdAt: { gte: last30Days },
+        ...notStaff,
       },
       _count: true,
       orderBy: { _count: { referrer: 'desc' } },
@@ -335,18 +355,19 @@ type ClickPoint = {
 export async function getClickAnalytics() {
   try {
     const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const notStaff = excludeUsersWhere(await getExcludedAnalyticsUserIds());
 
     const [totalClicks, pageGroups, rawClicks] = await Promise.all([
       prisma.analyticsEvent.count({
-        where: { eventType: 'click', createdAt: { gte: last7Days } },
+        where: { eventType: 'click', createdAt: { gte: last7Days }, ...notStaff },
       }),
       prisma.analyticsEvent.groupBy({
         by: ['path'],
-        where: { eventType: 'click', createdAt: { gte: last7Days } },
+        where: { eventType: 'click', createdAt: { gte: last7Days }, ...notStaff },
         _count: { _all: true },
       }),
       prisma.analyticsEvent.findMany({
-        where: { eventType: 'click', createdAt: { gte: last7Days } },
+        where: { eventType: 'click', createdAt: { gte: last7Days }, ...notStaff },
         orderBy: { createdAt: 'desc' },
         take: 1000,
         select: { path: true, eventData: true, createdAt: true },

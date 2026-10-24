@@ -2,6 +2,7 @@
 
 import { prisma } from '@/db/prisma';
 import { formatError } from '../utils';
+import { getExcludedAnalyticsUserIds, excludeUsersWhere } from './analytics-shared';
 
 export async function trackPageView(params: {
   sessionCartId: string;
@@ -100,6 +101,10 @@ export async function getAnalyticsOverview() {
 
     const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
 
+    // Exclude owner/staff activity from every figure below.
+    const excludedUserIds = await getExcludedAnalyticsUserIds();
+    const notStaff = excludeUsersWhere(excludedUserIds);
+
     const [
       totalEvents,
       uniqueVisitors,
@@ -113,20 +118,24 @@ export async function getAnalyticsOverview() {
       userAgentGroups,
       sessionDurations,
     ] = await Promise.all([
-      prisma.analyticsEvent.count(),
+      prisma.analyticsEvent.count({ where: { ...notStaff } }),
       prisma.analyticsEvent.groupBy({
         by: ['sessionCartId'],
+        where: { ...notStaff },
         _count: { _all: true },
       }),
       prisma.analyticsEvent.groupBy({
         by: ['path'],
+        where: { ...notStaff },
         _count: { _all: true },
       }),
       prisma.analyticsEvent.groupBy({
         by: ['country'],
+        where: { ...notStaff },
         _count: { _all: true },
       }),
       prisma.analyticsEvent.findMany({
+        where: { ...notStaff },
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
@@ -135,6 +144,7 @@ export async function getAnalyticsOverview() {
           createdAt: {
             gte: startOfToday,
           },
+          ...notStaff,
         },
       }),
       prisma.analyticsEvent.count({
@@ -143,6 +153,7 @@ export async function getAnalyticsOverview() {
             gte: startOfYesterday,
             lt: startOfToday,
           },
+          ...notStaff,
         },
       }),
       prisma.analyticsEvent.count({
@@ -150,6 +161,7 @@ export async function getAnalyticsOverview() {
           createdAt: {
             gte: startOf7DaysAgo,
           },
+          ...notStaff,
         },
       }),
       prisma.analyticsEvent.groupBy({
@@ -158,11 +170,13 @@ export async function getAnalyticsOverview() {
           createdAt: {
             gte: fiveMinutesAgo,
           },
+          ...notStaff,
         },
         _count: { _all: true },
       }),
       prisma.analyticsEvent.groupBy({
         by: ['userAgent'],
+        where: { ...notStaff },
         _count: { _all: true },
       }),
       prisma.analyticsEvent.groupBy({
@@ -171,6 +185,7 @@ export async function getAnalyticsOverview() {
           createdAt: {
             gte: startOf7DaysAgo,
           },
+          ...notStaff,
         },
         _min: { createdAt: true },
         _max: { createdAt: true },
