@@ -20,11 +20,11 @@ const AboutPage = () => {
         <header className="space-y-2 mb-10 text-center">
           <p className="text-xs tracking-[0.3em] uppercase text-blue-600">About</p>
           <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-            Rocken My Vibe
+            Christian Clothing Life
           </h1>
           <p className="max-w-2xl mx-auto text-sm md:text-base text-slate-600">
             Faith, humor, and real-life stories stitched into every design. This is where the heart behind
-            Rocken My Vibe lives.
+            Christian Clothing Life lives.
           </p>
         </header>
 
@@ -33,7 +33,7 @@ const AboutPage = () => {
             <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-50 via-white to-violet-50 p-6 md:p-8 shadow-sm">
               <p className="text-xs font-semibold tracking-[0.2em] text-blue-600 uppercase mb-2">The Story</p>
               <p className="text-sm md:text-base text-slate-700 leading-relaxed">
-                Hey, I&apos;m Allen — the creator, designer, and soul behind Rocken My Vibe. I didn&apos;t start this brand from a
+                Hey, I&apos;m Allen — the creator, designer, and soul behind Christian Clothing Life. I didn&apos;t start this brand from a
                 perfect place… actually, it came from surviving some of the hardest chapters of my life. From near-death
                 experiences to spiritual awakenings, from rebuilding my faith to rebuilding my confidence — every step
                 shaped who I am and what this brand stands for.
@@ -41,7 +41,7 @@ const AboutPage = () => {
               <p className="mt-4 text-sm md:text-base text-slate-700 leading-relaxed">
                 I&apos;m a person who lives in two worlds at once: the spiritual one that speaks in signs, visions, and
                 synchronicities… and the everyday physical world where bills, jobs, and real-life struggles don&apos;t
-                magically disappear. Rocken My Vibe is the bridge I built between those worlds.
+                magically disappear. Christian Clothing Life is the bridge I built between those worlds.
               </p>
               <p className="mt-4 text-sm md:text-base text-slate-700 leading-relaxed">
                 After years of feeling like I didn&apos;t fit in, I realized something powerful: your vibe isn&apos;t supposed to
@@ -53,13 +53,13 @@ const AboutPage = () => {
               <p className="mt-4 text-sm md:text-base text-slate-700 leading-relaxed">
                 This brand is for the people who&apos;ve been through things… the ones who feel energy deeply, who&apos;ve survived
                 storms, who&apos;ve seen darkness but still choose light. It&apos;s for anyone who&apos;s ever felt &quot;different&quot; in the
-                best (and hardest) ways. Rocken My Vibe is my reminder — and yours — that faith can be stylish, healing
+                best (and hardest) ways. Christian Clothing Life is my reminder — and yours — that faith can be stylish, healing
                 can be loud, and your story is worth wearing.
               </p>
               <p className="mt-4 text-sm md:text-base text-slate-700 leading-relaxed">
                 If you&apos;re here, welcome. Whether you came for the graphics, the message, or just curiosity — I&apos;m glad
                 you&apos;re part of this journey. Let&apos;s walk it together. With courage. With humor. With God. And most
-                importantly… let&apos;s rock our vibe.
+                importantly… God Bless You If You Are Reading This.
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ const AboutPage = () => {
                       />
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2 pt-4 text-[11px] text-gray-100 flex items-center justify-between">
                         <span className="uppercase tracking-[0.15em] text-gray-300">{photo.label}</span>
-                        <span className="text-[10px] text-violet-300">Rocken My Vibe</span>
+                        <span className="text-[10px] text-violet-300">Christian Clothing Life</span>
                       </div>
                     </div>
                   ))}
